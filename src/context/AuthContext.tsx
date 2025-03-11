@@ -88,19 +88,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, fullName: string) => {
     try {
-      // First register the user
-      const { data, error } = await signUp(email, password);
-      if (error) throw error;
+      // Step 1: Sign up the user
+      const { data: signUpData, error: signUpError } = await signUp(email, password);
       
-      if (data.user) {
-        // The profile will be created automatically by the database trigger
-        toast.success('Registration successful! Please check your email to verify your account.');
-        navigate('/login');
+      if (signUpError) {
+        console.error('Signup error:', signUpError);
+        toast.error(signUpError.message || 'Registration failed');
+        return;
       }
+      
+      if (!signUpData?.user) {
+        toast.error('Registration failed - no user data');
+        return;
+      }
+
+      // Step 2: Create profile entry
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: signUpData.user.id,
+            full_name: fullName,
+            role: 'user',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ]);
+      
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        toast.error('Failed to create user profile');
+        return;
+      }
+
+      // Step 3: Set the user in context
+      setUser(signUpData.user);
+      setIsAdmin(false);
+      
+      // Step 4: Show success message and redirect
+      toast.success('Registration successful! Welcome!');
+      navigate('/dashboard');
+      
     } catch (error: any) {
-      console.error('Registration error:', error);
-      toast.error(error.message || 'Failed to register');
-      throw error;
+      console.error('Registration process error:', error);
+      toast.error(error.message || 'Registration failed');
     }
   };
 

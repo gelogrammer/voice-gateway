@@ -7,54 +7,66 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Helper functions for recordings
 export const getRecordings = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('recordings')
-    .select(`
-      *,
-      profiles:user_id (
-        full_name,
-        email
-      )
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('recordings')
+      .select(`
+        *,
+        profiles:user_id (
+          full_name,
+          email
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching user recordings:', error);
+    if (error) {
+      console.error('Error fetching recordings:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getRecordings:', error);
     throw error;
   }
-
-  return data;
 };
 
 export const saveRecordingMetadata = async (
-  userId: string, 
-  filePath: string, 
-  duration: number, 
+  userId: string,
+  filePath: string,
+  duration: number,
   title: string,
   description?: string,
   emotion?: string
 ) => {
-  const { data, error } = await supabase
-    .from('recordings')
-    .insert([
-      {
-        user_id: userId,
-        file_url: filePath,
-        title,
-        description,
-        duration,
-        emotion,
-        created_at: new Date()
-      }
-    ]);
+  try {
+    const { data, error } = await supabase
+      .from('recordings')
+      .insert([
+        {
+          user_id: userId,
+          file_url: filePath,
+          title,
+          description,
+          duration,
+          emotion,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ])
+      .select();
 
-  if (error) {
-    console.error('Error saving recording metadata:', error);
+    if (error) {
+      console.error('Error saving recording metadata:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in saveRecordingMetadata:', error);
     throw error;
   }
-
-  return data;
 };
 
 export const getAllRecordings = async () => {
@@ -92,13 +104,18 @@ export const getAllUsers = async () => {
 };
 
 export const deleteRecording = async (id: string) => {
-  const { error } = await supabase
-    .from('recordings')
-    .delete()
-    .eq('id', id);
+  try {
+    const { error } = await supabase
+      .from('recordings')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error deleting recording:', error);
+    if (error) {
+      console.error('Error deleting recording:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error in deleteRecording:', error);
     throw error;
   }
 };
@@ -143,18 +160,23 @@ export const uploadRecording = async (file: File, userId: string, title: string,
 
 // Voice recording upload helper
 export const uploadVoiceRecording = async (file: File, userId: string) => {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/${Date.now()}.${fileExt}`;
-  const filePath = `recordings/${fileName}`;
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    const filePath = `recordings/${fileName}`;
 
-  const { data, error } = await supabase.storage
-    .from('recordings')
-    .upload(filePath, file);
+    const { data, error } = await supabase.storage
+      .from('recordings')
+      .upload(filePath, file);
 
-  if (error) {
-    console.error('Error uploading voice recording:', error);
+    if (error) {
+      console.error('Error uploading recording:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in uploadVoiceRecording:', error);
     throw error;
   }
-
-  return data;
 };
