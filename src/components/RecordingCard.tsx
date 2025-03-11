@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlayIcon, StopCircleIcon, Trash2Icon } from 'lucide-react';
 import { Recording } from '@/types/recording';
-import { deleteRecording } from '@/utils/supabaseClient';
+import { deleteRecording, supabase } from '@/utils/supabaseClient';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -15,16 +15,88 @@ interface RecordingCardProps {
 
 const RecordingCard = ({ recording, onDelete }: RecordingCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audio] = useState(new Audio(recording.file_url));
+  const [isLoading, setIsLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      audio.pause();
-      audio.currentTime = 0;
-    } else {
-      audio.play();
+  useEffect(() => {
+    // Cleanup audio on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePlayPause = async () => {
+    try {
+      if (isPlaying && audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setIsPlaying(false);
+        return;
+      }
+
+      setIsLoading(true);
+
+      // Extract the path from the file_url
+      let path = recording.file_url;
+      
+      // If it's a full URL, extract just the path part
+      if (path.startsWith('http')) {
+        try {
+          const url = new URL(path);
+          // Extract everything after '/recordings/'
+          const match = url.pathname.match(/\/recordings\/(.+)/);
+          if (match) {
+            path = match[1];
+          }
+        } catch (e) {
+          console.error('Error parsing URL:', e);
+          // If URL parsing fails, try using the path as is
+        }
+      }
+      
+      if (!path) {
+        throw new Error('No valid file path available');
+      }
+
+      // Get a fresh signed URL
+      const { data, error } = await supabase
+        .storage
+        .from('recordings')
+        .createSignedUrl(path, 60); // 60 seconds expiry
+
+      if (error || !data?.signedUrl) {
+        throw error || new Error('Failed to get signed URL');
+      }
+
+      // Create or update audio element
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+          setIsLoading(false);
+        };
+        audioRef.current.onerror = (e) => {
+          console.error('Audio error:', e);
+          toast.error('Error playing audio');
+          setIsPlaying(false);
+          setIsLoading(false);
+        };
+      }
+
+      audioRef.current.src = data.signedUrl;
+      await audioRef.current.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      toast.error('Failed to play recording');
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleDelete = async () => {
@@ -37,9 +109,6 @@ const RecordingCard = ({ recording, onDelete }: RecordingCardProps) => {
       toast.error('Failed to delete recording');
     }
   };
-
-  // Clean up audio on unmount
-  audio.onended = () => setIsPlaying(false);
 
   return (
     <Card>
@@ -66,8 +135,11 @@ const RecordingCard = ({ recording, onDelete }: RecordingCardProps) => {
               variant="outline"
               size="icon"
               onClick={handlePlayPause}
+              disabled={isLoading}
             >
-              {isPlaying ? (
+              {isLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : isPlaying ? (
                 <StopCircleIcon className="h-4 w-4" />
               ) : (
                 <PlayIcon className="h-4 w-4" />

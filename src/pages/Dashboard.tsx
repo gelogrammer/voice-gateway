@@ -16,9 +16,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import RecordingCard from '../components/RecordingCard';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('record');
 
   const fetchRecordings = async () => {
@@ -26,16 +27,23 @@ const Dashboard = () => {
     
     try {
       setLoading(true);
+      setError(null);
       const data = await getRecordings(user.id);
+      
+      if (!data) {
+        throw new Error('No data received from server');
+      }
+
       // Map the response to ensure it matches the Recording type
       const formattedRecordings: Recording[] = data.map((recording: any) => ({
         ...recording,
-        user_id: recording.user_id || user.id, // Ensure user_id is present
+        user_id: recording.user_id || user.id,
         profiles: recording.profiles || []
       }));
       setRecordings(formattedRecordings);
     } catch (error) {
       console.error('Error fetching recordings:', error);
+      setError('Failed to load recordings. Please try again.');
       toast.error('Failed to fetch recordings');
     } finally {
       setLoading(false);
@@ -43,11 +51,36 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchRecordings();
-  }, [user]);
+    if (!authLoading && user) {
+      fetchRecordings();
+    }
+  }, [user, authLoading]);
 
-  if (loading) {
+  // Show loading spinner while auth is being checked
+  if (authLoading) {
     return <LoadingSpinner />;
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+        <div className="text-destructive mb-4">{error}</div>
+        <Button onClick={fetchRecordings} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  // Show not authenticated state
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+        <div className="text-muted-foreground mb-4">Please log in to access the dashboard</div>
+      </div>
+    );
   }
 
   const handleDeleteRecording = async (id: string) => {
@@ -77,8 +110,8 @@ const Dashboard = () => {
   }, {} as Record<string, Recording[]>);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto py-6 bg-background min-h-screen">
+      <div className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="md:col-span-2">
             <CardHeader>

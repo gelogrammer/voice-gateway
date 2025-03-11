@@ -248,17 +248,8 @@ export const uploadVoiceRecording = async (file: File, userId: string) => {
       throw new Error('Upload failed: No data returned');
     }
 
-    // Get the public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('recordings')
-      .getPublicUrl(filePath);
-
-    if (!publicUrl) {
-      throw new Error('Failed to get public URL for uploaded file');
-    }
-
     return { 
-      path: publicUrl,
+      path: filePath, // Store the relative path instead of the public URL
       fileName: cleanFileName,
       fileSize: file.size,
       mimeType: file.type,

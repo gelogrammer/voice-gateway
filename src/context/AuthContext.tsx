@@ -21,63 +21,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check active sessions and sets the user
-    getCurrentUser().then(async ({ user }) => {
-      if (user) {
-        console.log('Current user ID:', user.id); // Debug log
-        setUser(user);
-        const { data: profile, error } = await getUserProfile(user.id);
+  const handleUserSession = async (user: User | null) => {
+    if (user) {
+      setUser(user);
+      const { data: profile, error } = await getUserProfile(user.id);
+      
+      if (!error && profile) {
+        const isUserAdmin = profile.role === 'admin';
+        setIsAdmin(isUserAdmin);
         
-        if (!error && profile) {
-          console.log('Current user profile:', profile); // Debug log
-          const isUserAdmin = profile.role === 'admin';
-          console.log('Is current user admin?', isUserAdmin); // Debug log
-          setIsAdmin(isUserAdmin);
-          
-          // Force navigation based on role
-          if (isUserAdmin) {
-            navigate('/admin', { replace: true });
-          } else {
-            navigate('/dashboard', { replace: true });
-          }
+        // Only navigate if we're not already on the correct page
+        const currentPath = window.location.pathname;
+        const targetPath = isUserAdmin ? '/admin' : '/dashboard';
+        
+        if (currentPath !== targetPath && currentPath !== '/') {
+          navigate(targetPath, { replace: true });
         }
       }
+    } else {
+      setUser(null);
+      setIsAdmin(false);
+      // Only navigate to login if we're not already there
+      if (window.location.pathname !== '/login') {
+        navigate('/login', { replace: true });
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Check active sessions and sets the user
+    getCurrentUser().then(({ user }) => {
+      handleUserSession(user);
       setLoading(false);
     });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      if (currentUser) {
-        console.log('Auth state change - user ID:', currentUser.id); // Debug log
-        setUser(currentUser);
-        const { data: profile, error } = await getUserProfile(currentUser.id);
-        
-        if (!error && profile) {
-          console.log('Auth state change - profile:', profile); // Debug log
-          const isUserAdmin = profile.role === 'admin';
-          console.log('Auth state change - is admin?', isUserAdmin); // Debug log
-          setIsAdmin(isUserAdmin);
-          
-          // Force navigation based on role
-          if (isUserAdmin) {
-            navigate('/admin', { replace: true });
-          } else {
-            navigate('/dashboard', { replace: true });
-          }
-        }
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-      }
-      setLoading(false);
+      handleUserSession(session?.user || null);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
