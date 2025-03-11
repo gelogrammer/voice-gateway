@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +26,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -36,14 +35,14 @@ const AdminDashboard = () => {
       return;
     }
     
-    if (user.role !== 'admin') {
+    if (!isAdmin) {
       navigate('/dashboard');
       toast.error('You do not have permission to access the admin dashboard');
       return;
     }
     
     fetchData();
-  }, [user, navigate]);
+  }, [user, isAdmin, navigate]);
   
   const fetchData = async () => {
     try {

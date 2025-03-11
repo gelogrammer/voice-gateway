@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MicIcon, LogOutIcon, UserIcon, UsersIcon, HomeIcon } from 'lucide-react';
 
 const NavBar = () => {
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -53,7 +52,7 @@ const NavBar = () => {
                   Dashboard
                 </Link>
                 
-                {user.role === 'admin' && (
+                {isAdmin && (
                   <Link 
                     to="/admin" 
                     className={`px-3 py-2 rounded-md transition-colors ${
@@ -70,7 +69,7 @@ const NavBar = () => {
               
               <div className="flex items-center space-x-2">
                 <span className="hidden md:inline-block text-sm text-muted-foreground">
-                  {user.full_name || user.email}
+                  {user.email}
                 </span>
                 <Button 
                   variant="outline" 
