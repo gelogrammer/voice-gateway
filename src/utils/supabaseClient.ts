@@ -225,17 +225,15 @@ export const uploadVoiceRecording = async (file: File, userId: string) => {
       throw new Error('Invalid file type. Only WAV, WebM, and MP3 files are allowed');
     }
 
-    // Create a clean filename
-    const timestamp = Date.now();
-    const cleanFileName = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    const filePath = `${userId}/${cleanFileName}`;
+    // Use the original filename without timestamp
+    const filePath = `${userId}/${file.name}`;
 
     // Upload to storage
     const { data, error: uploadError } = await supabase.storage
       .from('recordings')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: false,
+        upsert: true, // Changed to true to overwrite existing files
         contentType: file.type
       });
 
@@ -249,8 +247,8 @@ export const uploadVoiceRecording = async (file: File, userId: string) => {
     }
 
     return { 
-      path: filePath, // Store the relative path instead of the public URL
-      fileName: cleanFileName,
+      path: filePath,
+      fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
       ...data 

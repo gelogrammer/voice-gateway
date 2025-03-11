@@ -8,14 +8,21 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { MicIcon, StopCircleIcon, Loader2Icon, PlayIcon, CheckCircleIcon, AlertCircleIcon, TimerIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { uploadVoiceRecording, saveRecordingMetadata } from '../utils/supabaseClient';
+import { uploadVoiceRecording, saveRecordingMetadata, supabase } from '../utils/supabaseClient';
 import { scripts, Script } from '../data/recordingScripts';
 import { cn } from '@/lib/utils';
 
 const RECORDING_TIME_LIMIT = 7; // 7 seconds
 const COUNTDOWN_TIME = 3; // 3 seconds countdown before recording
 
+interface UserProgress {
+  completedScripts: string[];
+  currentCategory: string;
+  lastUpdated: string;
+}
+
 const ScriptRecorder = () => {
+  const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [currentScript, setCurrentScript] = useState<Script | null>(null);
   const [completedScripts, setCompletedScripts] = useState<Set<string>>(new Set());
@@ -26,8 +33,8 @@ const ScriptRecorder = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentCategory, setCurrentCategory] = useState('HIGH_FLUENCY');
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
-  const { user } = useAuth();
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -50,6 +57,124 @@ const ScriptRecorder = () => {
   useEffect(() => {
     checkMicrophonePermission();
   }, []);
+
+  // Handle category change
+  const handleCategoryChange = (newCategory: string) => {
+    setCurrentCategory(newCategory);
+    // Reset current script when changing categories
+    if (currentScript) {
+      resetRecording();
+    }
+  };
+
+  // Load progress from localStorage on mount
+  useEffect(() => {
+    if (user) {
+      const savedProgress = localStorage.getItem(`userProgress_${user.id}`);
+      if (savedProgress) {
+        try {
+          const { completedScripts: saved, currentCategory: savedCategory } = JSON.parse(savedProgress);
+          setCompletedScripts(new Set(saved));
+          setCurrentCategory(savedCategory);
+        } catch (error) {
+          console.error('Error parsing saved progress:', error);
+          // If there's an error, use defaults
+          setCompletedScripts(new Set());
+          setCurrentCategory('HIGH_FLUENCY');
+        }
+      }
+      syncWithSupabase();
+    }
+  }, [user]);
+
+  // Sync with Supabase whenever progress changes
+  useEffect(() => {
+    if (user && !isSyncing) {
+      const saveProgress = async () => {
+        try {
+          setIsSyncing(true);
+          
+          // Save to localStorage
+          const progress: UserProgress = {
+            completedScripts: Array.from(completedScripts),
+            currentCategory,
+            lastUpdated: new Date().toISOString()
+          };
+          localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+
+          // Save to Supabase
+          const { error } = await supabase
+            .from('user_progress')
+            .upsert({
+              user_id: user.id,
+              completed_scripts: Array.from(completedScripts),
+              current_category: currentCategory,
+              last_updated: new Date().toISOString()
+            }, {
+              onConflict: 'user_id'
+            });
+
+          if (error) {
+            console.error('Supabase save error:', error);
+            throw error;
+          }
+        } catch (error) {
+          console.error('Error saving progress:', error);
+          // Show error toast only for non-network errors
+          if (error instanceof Error && !error.message.includes('network')) {
+            toast.error('Failed to save progress');
+          }
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      // Debounce the save operation
+      const timeoutId = setTimeout(saveProgress, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [completedScripts, currentCategory, user]);
+
+  // Sync with Supabase
+  const syncWithSupabase = async () => {
+    if (!user) return;
+
+    try {
+      setIsSyncing(true);
+      const { data, error } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+        throw error;
+      }
+
+      if (data) {
+        // Compare timestamps before updating
+        const localProgress = localStorage.getItem(`userProgress_${user.id}`);
+        const localData = localProgress ? JSON.parse(localProgress) : null;
+        
+        if (!localData || new Date(data.last_updated) > new Date(localData.lastUpdated)) {
+          setCompletedScripts(new Set(data.completed_scripts));
+          setCurrentCategory(data.current_category);
+          
+          // Update localStorage
+          const progress: UserProgress = {
+            completedScripts: data.completed_scripts,
+            currentCategory: data.current_category,
+            lastUpdated: data.last_updated
+          };
+          localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing with Supabase:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const checkMicrophonePermission = async () => {
     try {
@@ -223,16 +348,29 @@ const ScriptRecorder = () => {
       
       // Show upload progress toast
       const uploadToast = toast.loading('Uploading recording...');
+
+      // Get user's email from auth.users
+      const userEmail = user.email;
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
+
+      // Format the username from email (remove @domain.com and special characters)
+      const userName = userEmail
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
       
-      // Convert webm to wav for better compatibility
       const wavBlob = await convertToWav(audioBlob);
       
-      const file = new File([wavBlob], `${currentScript.id}_${Date.now()}.wav`, {
+      // Create filename with userName_CATEGORY format
+      const fileName = `${userName}_${currentScript.category}.wav`;
+      
+      const file = new File([wavBlob], fileName, {
         type: 'audio/wav',
         lastModified: Date.now()
       });
       
-      // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast.error('Recording file too large. Please try again.');
         return;
@@ -246,7 +384,6 @@ const ScriptRecorder = () => {
       
       const fileUrl = `${data.path}`;
       
-      // Save metadata with more information
       await saveRecordingMetadata({
         user_id: user.id,
         file_url: fileUrl,
@@ -258,7 +395,11 @@ const ScriptRecorder = () => {
         mime_type: file.type
       });
       
-      setCompletedScripts(prev => new Set([...prev, currentScript.id]));
+      // Update completed scripts
+      const newCompletedScripts = new Set(completedScripts);
+      newCompletedScripts.add(currentScript.id);
+      setCompletedScripts(newCompletedScripts);
+      
       toast.success('Recording saved successfully!', {
         id: uploadToast
       });
@@ -327,7 +468,7 @@ const ScriptRecorder = () => {
           <CardContent>
             <Tabs
               value={currentCategory}
-              onValueChange={setCurrentCategory}
+              onValueChange={handleCategoryChange}
               orientation="vertical"
               className="w-full"
             >
