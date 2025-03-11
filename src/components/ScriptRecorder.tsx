@@ -136,12 +136,15 @@ const ScriptRecorder = () => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1
         } 
       });
       
       mediaRecorder.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000 // 128kbps for good quality
       });
       
       mediaRecorder.current.ondataavailable = (event) => {
@@ -150,25 +153,29 @@ const ScriptRecorder = () => {
         }
       };
       
-      mediaRecorder.current.onstop = () => {
+      mediaRecorder.current.onstop = async () => {
         try {
           const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+          // Validate audio size and duration
+          if (audioBlob.size < 1024) { // Less than 1KB
+            throw new Error('Recording too short or empty');
+          }
           setAudioBlob(audioBlob);
           const url = URL.createObjectURL(audioBlob);
           setAudioUrl(url);
         } catch (error) {
-          console.error('Error creating audio blob:', error);
-          toast.error('Failed to process recording');
+          console.error('Error processing recording:', error);
+          toast.error('Failed to process recording. Please try again.');
+          resetRecording();
         }
       };
 
       mediaRecorder.current.onerror = (event) => {
         console.error('MediaRecorder error:', event);
-        toast.error('Recording error occurred');
+        toast.error('Recording error occurred. Please try again.');
         stopRecording();
       };
       
-      // Request data every second
       mediaRecorder.current.start(1000);
       setIsRecording(true);
       startTimer();
@@ -206,15 +213,30 @@ const ScriptRecorder = () => {
   };
   
   const handleSubmit = async () => {
-    if (!user || !audioBlob || !currentScript) return;
+    if (!user || !audioBlob || !currentScript) {
+      toast.error('Missing required data for saving recording');
+      return;
+    }
     
     try {
       setIsSubmitting(true);
       
-      const file = new File([audioBlob], `${currentScript.id}_${Date.now()}.wav`, {
+      // Show upload progress toast
+      const uploadToast = toast.loading('Uploading recording...');
+      
+      // Convert webm to wav for better compatibility
+      const wavBlob = await convertToWav(audioBlob);
+      
+      const file = new File([wavBlob], `${currentScript.id}_${Date.now()}.wav`, {
         type: 'audio/wav',
         lastModified: Date.now()
       });
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Recording file too large. Please try again.');
+        return;
+      }
       
       const data = await uploadVoiceRecording(file, user.id);
       
@@ -224,23 +246,47 @@ const ScriptRecorder = () => {
       
       const fileUrl = `${data.path}`;
       
-      await saveRecordingMetadata(
-        user.id,
-        fileUrl,
+      // Save metadata with more information
+      await saveRecordingMetadata({
+        user_id: user.id,
+        file_url: fileUrl,
         duration,
-        `${currentScript.category} - ${currentScript.title}`,
-        currentScript.text
-      );
+        title: `${currentScript.category} - ${currentScript.title}`,
+        script_text: currentScript.text,
+        category: currentScript.category,
+        file_size: file.size,
+        mime_type: file.type
+      });
       
       setCompletedScripts(prev => new Set([...prev, currentScript.id]));
-      toast.success('Recording saved successfully!');
+      toast.success('Recording saved successfully!', {
+        id: uploadToast
+      });
       resetRecording();
     } catch (error) {
       console.error('Error saving recording:', error);
-      toast.error('Failed to save recording');
+      toast.error(
+        error instanceof Error 
+          ? `Failed to save recording: ${error.message}`
+          : 'Failed to save recording'
+      );
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  // Helper function to convert blob to wav format
+  const convertToWav = async (blob: Blob): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      try {
+        // For now, return the original blob
+        // In a production environment, you would want to implement
+        // proper audio conversion using Web Audio API or a library
+        resolve(blob);
+      } catch (error) {
+        reject(error);
+      }
+    });
   };
   
   const getCategoryScripts = (category: string) => {

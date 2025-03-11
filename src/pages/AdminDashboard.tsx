@@ -52,7 +52,12 @@ const AdminDashboard = () => {
       ]);
       
       if (recordingsData) {
-        setRecordings(recordingsData);
+        const formattedRecordings: Recording[] = recordingsData.map((recording: any) => ({
+          ...recording,
+          user_id: recording.user_id || user.id,
+          profiles: recording.profiles || []
+        }));
+        setRecordings(formattedRecordings);
       }
       
       if (usersData) {

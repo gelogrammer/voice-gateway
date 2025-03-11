@@ -11,20 +11,9 @@ import { toast } from 'sonner';
 import ScriptRecorder from '../components/ScriptRecorder';
 import UserCard from '../components/UserCard';
 import { scripts } from '../data/recordingScripts';
-
-interface Recording {
-  id: string;
-  created_at: string;
-  title: string;
-  description?: string;
-  file_url: string;
-  duration: number;
-  user_id: string;
-  profiles: {
-    full_name: string;
-    email: string;
-  };
-}
+import { Recording } from '../types/recording';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import RecordingCard from '../components/RecordingCard';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -38,7 +27,13 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const data = await getRecordings(user.id);
-      setRecordings(data || []);
+      // Map the response to ensure it matches the Recording type
+      const formattedRecordings: Recording[] = data.map((recording: any) => ({
+        ...recording,
+        user_id: recording.user_id || user.id, // Ensure user_id is present
+        profiles: recording.profiles || []
+      }));
+      setRecordings(formattedRecordings);
     } catch (error) {
       console.error('Error fetching recordings:', error);
       toast.error('Failed to fetch recordings');
@@ -161,43 +156,26 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="recordings" className="mt-6 focus-visible:outline-none">
-            {recordings.length === 0 ? (
-              <Card>
-                <CardHeader className="text-center">
-                  <CardTitle>No recordings yet</CardTitle>
-                  <CardDescription>
-                    Start by recording your first voice sample using the scripts provided.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                  <Button 
-                    onClick={() => setActiveTab('record')}
-                    size="lg"
-                    className="mt-4"
-                  >
-                    <MicIcon className="h-4 w-4 mr-2" />
-                    Start Recording
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(recordingsByCategory).map(([category, categoryRecordings]) => (
-                  <div key={category}>
-                    <h3 className="text-lg font-semibold mb-4">{category}</h3>
-                    <div className="grid grid-cols-1 gap-4">
-                      {categoryRecordings.map((recording) => (
-                        <UserCard
-                          key={recording.id}
-                          recording={recording}
-                          onDelete={handleDeleteRecording}
-                        />
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Recordings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px] pr-4">
+                  {loading ? (
+                    <div>Loading...</div>
+                  ) : recordings.length === 0 ? (
+                    <div>No recordings found</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {recordings.map((recording) => (
+                        <RecordingCard key={recording.id} recording={recording} />
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

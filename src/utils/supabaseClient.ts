@@ -9,14 +9,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const getRecordings = async (userId: string) => {
   try {
     const { data, error } = await supabase
-      .from('recordings')
-      .select(`
-        *,
-        profiles:user_id (
-          full_name,
-          email
-        )
-      `)
+      .from('user_recordings')
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -32,49 +26,85 @@ export const getRecordings = async (userId: string) => {
   }
 };
 
-export const saveRecordingMetadata = async (
-  userId: string,
-  filePath: string,
-  duration: number,
-  title: string,
-  description?: string,
-  emotion?: string
-) => {
+interface RecordingMetadata {
+  user_id: string;
+  file_url: string;
+  duration: number;
+  title: string;
+  script_text: string;
+  category: string;
+  file_size: number;
+  mime_type: string;
+}
+
+export const saveRecordingMetadata = async ({
+  user_id,
+  file_url,
+  duration,
+  title,
+  script_text,
+  category,
+  file_size,
+  mime_type
+}: RecordingMetadata) => {
   try {
+    // Validate input
+    if (!user_id || !file_url || !duration || !title || !script_text || !category || !file_size || !mime_type) {
+      throw new Error('Missing required fields for recording metadata');
+    }
+
+    // Insert the recording metadata
     const { data, error } = await supabase
-      .from('recordings')
-      .insert([
-        {
-          user_id: userId,
-          file_url: filePath,
-          title,
-          description,
-          duration,
-          emotion,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ])
-      .select();
+      .from('user_recordings')
+      .insert({
+        user_id,
+        file_url,
+        duration,
+        title,
+        script_text,
+        category,
+        file_size,
+        mime_type,
+        is_processed: false
+      })
+      .select('*')
+      .single();
 
     if (error) {
       console.error('Error saving recording metadata:', error);
-      throw error;
+      throw new Error(`Failed to save recording metadata: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('No data returned after saving recording metadata');
     }
 
     return data;
   } catch (error) {
     console.error('Error in saveRecordingMetadata:', error);
-    throw error;
+    throw error instanceof Error ? error : new Error('Unknown error occurred while saving metadata');
   }
 };
 
 export const getAllRecordings = async () => {
   const { data, error } = await supabase
-    .from('recordings')
+    .from('user_recordings')
     .select(`
-      *,
-      profiles:user_id (
+      id,
+      user_id,
+      file_url,
+      duration,
+      title,
+      script_text,
+      category,
+      file_size,
+      mime_type,
+      is_processed,
+      waveform_data,
+      transcription,
+      created_at,
+      updated_at,
+      user:user_id (
         full_name,
         email
       )
@@ -105,13 +135,34 @@ export const getAllUsers = async () => {
 
 export const deleteRecording = async (id: string) => {
   try {
+    // First, get the recording to get the file path
+    const { data: recording } = await supabase
+      .from('user_recordings')
+      .select('file_url')
+      .eq('id', id)
+      .single();
+
+    if (recording) {
+      // Delete the file from storage
+      const filePath = recording.file_url.split('/').pop();
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('recordings')
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error('Error deleting file from storage:', storageError);
+        }
+      }
+    }
+
+    // Delete the database record
     const { error } = await supabase
-      .from('recordings')
+      .from('user_recordings')
       .delete()
       .eq('id', id);
 
     if (error) {
-      console.error('Error deleting recording:', error);
       throw error;
     }
   } catch (error) {
@@ -161,22 +212,60 @@ export const uploadRecording = async (file: File, userId: string, title: string,
 // Voice recording upload helper
 export const uploadVoiceRecording = async (file: File, userId: string) => {
   try {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
-    const filePath = `recordings/${fileName}`;
-
-    const { data, error } = await supabase.storage
-      .from('recordings')
-      .upload(filePath, file);
-
-    if (error) {
-      console.error('Error uploading recording:', error);
-      throw error;
+    // Validate file
+    if (!file) {
+      throw new Error('No file provided');
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      throw new Error('File size exceeds 10MB limit');
+    }
+    
+    if (!['audio/wav', 'audio/webm', 'audio/mp3', 'audio/mpeg'].includes(file.type)) {
+      throw new Error('Invalid file type. Only WAV, WebM, and MP3 files are allowed');
     }
 
-    return data;
+    // Create a clean filename
+    const timestamp = Date.now();
+    const cleanFileName = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const filePath = `${userId}/${cleanFileName}`;
+
+    // Upload to storage
+    const { data, error: uploadError } = await supabase.storage
+      .from('recordings')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+
+    if (uploadError) {
+      console.error('Error uploading recording:', uploadError);
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+
+    if (!data) {
+      throw new Error('Upload failed: No data returned');
+    }
+
+    // Get the public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('recordings')
+      .getPublicUrl(filePath);
+
+    if (!publicUrl) {
+      throw new Error('Failed to get public URL for uploaded file');
+    }
+
+    return { 
+      path: publicUrl,
+      fileName: cleanFileName,
+      fileSize: file.size,
+      mimeType: file.type,
+      ...data 
+    };
   } catch (error) {
     console.error('Error in uploadVoiceRecording:', error);
-    throw error;
+    throw error instanceof Error ? error : new Error('Unknown error occurred during upload');
   }
 };
