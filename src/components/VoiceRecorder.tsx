@@ -12,7 +12,7 @@ import {
   CardTitle, 
   CardDescription 
 } from '@/components/ui/card';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { MicIcon, StopCircleIcon, Loader2Icon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { uploadVoiceRecording, saveRecordingMetadata } from '../utils/supabaseClient';

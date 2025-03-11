@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DownloadIcon, TrashIcon, PlayIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { supabase } from '../utils/supabaseClient';
 
 export type Recording = {

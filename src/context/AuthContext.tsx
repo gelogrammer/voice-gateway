@@ -1,8 +1,7 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 type User = {
   id: string;
@@ -28,7 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for active session on load
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -38,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         if (session?.user) {
-          // Fetch additional user data from your users table
           const { data, error: profileError } = await supabase
             .from('users')
             .select('*')
@@ -67,10 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     checkSession();
 
-    // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // Fetch additional user data
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -106,7 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      // User data will be updated by the auth state listener
       toast.success("Welcome back!");
     } catch (error: any) {
       console.error('Error logging in:', error);
@@ -121,13 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      // Sign up the user
       const { data, error } = await supabase.auth.signUp({ email, password });
       
       if (error) throw error;
       
       if (data.user) {
-        // Create profile in the users table
         const { error: profileError } = await supabase
           .from('users')
           .insert([
@@ -135,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: data.user.id,
               email,
               full_name: fullName,
-              role: 'user', // Default role
+              role: 'user',
               created_at: new Date()
             }
           ]);
