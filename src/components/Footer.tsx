@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -10,7 +9,7 @@ const Footer = () => {
       <div className="container-tight">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-3">
-            <h3 className="text-lg font-medium">VoiceGateway</h3>
+            <h3 className="text-lg font-medium">talk.twah</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
               Real-Time Speech Rate and Emotion Feedback Using Deep Reinforcement Learning
             </p>
@@ -61,7 +60,7 @@ const Footer = () => {
         
         <div className="mt-8 pt-6 border-t border-border">
           <p className="text-center text-sm text-muted-foreground">
-            &copy; {currentYear} VoiceGateway. All rights reserved.
+            &copy; {currentYear} talk.twah. All rights reserved.
           </p>
         </div>
       </div>

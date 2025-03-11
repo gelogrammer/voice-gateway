@@ -14,7 +14,7 @@ const NavBar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <MicIcon className="h-8 w-8 text-voice-blue" />
-            <span className="text-xl font-semibold">VoiceGateway</span>
+            <span className="text-xl font-semibold">talk.twah</span>
           </Link>
 
           {/* Navigation Links */}
