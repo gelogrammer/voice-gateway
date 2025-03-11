@@ -1,69 +1,121 @@
-# Welcome to your Lovable project
+# Voice Gateway Project
 
-## Project info
+## Project Overview
 
-**URL**: https://lovable.dev/projects/c8a5a16b-8bd4-462d-9892-e2110f197097
+This is a specialized web application designed for collecting and managing voice datasets to improve Automatic Speech Recognition (ASR) systems. The platform provides:
 
-## How can I edit this code?
+- Efficient voice data collection interface
+- Support for multiple languages and accents
+- Quality control mechanisms for audio recordings
+- Dataset management and organization tools
+- Real-time audio processing and validation
+- Secure data storage and handling
 
-There are several ways of editing your application.
+Built with modern web technologies, this gateway serves as a crucial tool for enhancing ASR accuracy through systematic voice data collection.
 
-**Use Lovable**
+## Tech Stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/c8a5a16b-8bd4-462d-9892-e2110f197097) and start prompting.
+- **Frontend Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **UI Components**: shadcn/ui (based on Radix UI)
+- **Styling**: Tailwind CSS
+- **Backend/Database**: Supabase
+- **State Management**: TanStack Query (React Query)
+- **Form Handling**: React Hook Form with Zod validation
+- **Routing**: React Router DOM
+- **Date Handling**: date-fns
+- **Charts**: Recharts
+- **Notifications**: Sonner, React Hot Toast
+- **Development Tools**:
+  - TypeScript
+  - ESLint
+  - SWC (for fast compilation)
+  - PostCSS
+  - Tailwind Typography
 
-Changes made via Lovable will be committed automatically to this repo.
+## Prerequisites
 
-**Use your preferred IDE**
+- Node.js (Latest LTS version recommended)
+- npm or bun package manager
+- Git
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Getting Started
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. **Clone the repository**
+   ```sh
+   git clone https://github.com/gelogrammer/voice-gateway.git
+   cd voice-gateway
+   ```
 
-Follow these steps:
+2. **Install dependencies**
+   ```sh
+   npm install
+   # or if using bun
+   bun install
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. **Environment Setup**
+   - Copy `.env.example` to `.env` (if it exists)
+   - Configure your Supabase credentials and other environment variables
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. **Start Development Server**
+   ```sh
+   npm run dev
+   # or
+   bun dev
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+   The application will be available at `http://localhost:5173`
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint checks
+
+## Project Structure
+
+```
+├── src/              # Source code
+├── supabase/         # Supabase configurations and migrations
+├── public/           # Static assets
+├── components.json   # shadcn/ui components configuration
+└── ...config files   # Various configuration files
 ```
 
-**Edit a file directly in GitHub**
+## Development Options
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 1. Local Development
+Clone and work with your preferred IDE. Changes can be pushed directly to the repository.
 
-**Use GitHub Codespaces**
+### 2. GitHub Codespaces
+Launch a development environment directly in your browser:
+1. Go to repository
+2. Click "Code" > "Codespaces"
+3. Click "New codespace"
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 3. Direct GitHub Editing
+Edit files directly through GitHub's web interface for quick changes.
 
-## What technologies are used for this project?
+## Deployment
 
-This project is built with .
+### Netlify Deployment
+To deploy this project on Netlify:
+1. Connect your repository to Netlify
+2. Configure build settings:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+3. Set up your custom domain in Netlify settings (optional)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Contributing
 
-## How can I deploy this project?
+1. Create a new branch for your feature
+2. Make your changes
+3. Submit a pull request
+4. Ensure all checks pass
 
-Simply open [Lovable](https://lovable.dev/projects/c8a5a16b-8bd4-462d-9892-e2110f197097) and click on Share -> Publish.
+## Support
 
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+For support and questions, please open an issue in the repository.
