@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { MicIcon, StopCircleIcon, Loader2Icon, PlayIcon, CheckCircleIcon, AlertCircleIcon, TimerIcon, InfoIcon, HelpCircle, BarChart2Icon, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { uploadVoiceRecording, saveRecordingMetadata, supabase } from '../utils/supabaseClient';
+import { uploadVoiceRecording, saveRecordingMetadata } from '../utils/supabaseClient';
+import { getUserProgress, updateUserProgress, supabase } from '../lib/supabase';
 import { scripts, Script } from '../data/recordingScripts';
 import { cn } from '@/lib/utils';
 import {
@@ -127,65 +128,13 @@ const ScriptRecorder = () => {
     }
   }, [user]);
 
-  // Sync with Supabase whenever progress changes
-  useEffect(() => {
-    if (user && !isSyncing) {
-      const saveProgress = async () => {
-        try {
-          setIsSyncing(true);
-          
-          // Save to localStorage
-          const progress: UserProgress = {
-            completedScripts: Array.from(completedScripts),
-            currentCategory,
-            lastUpdated: new Date().toISOString()
-          };
-          localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
-
-          // Save to Supabase
-          const { error } = await supabase
-            .from('user_progress')
-            .upsert({
-              user_id: user.id,
-              completed_scripts: Array.from(completedScripts),
-              current_category: currentCategory,
-              last_updated: new Date().toISOString()
-            }, {
-              onConflict: 'user_id'
-            });
-
-          if (error) {
-            console.error('Supabase save error:', error);
-            throw error;
-          }
-        } catch (error) {
-          console.error('Error saving progress:', error);
-          // Show error toast only for non-network errors
-          if (error instanceof Error && !error.message.includes('network')) {
-            toast.error('Failed to save progress');
-          }
-        } finally {
-          setIsSyncing(false);
-        }
-      };
-
-      // Debounce the save operation
-      const timeoutId = setTimeout(saveProgress, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [completedScripts, currentCategory, user]);
-
   // Sync with Supabase
   const syncWithSupabase = async () => {
     if (!user) return;
 
     try {
       setIsSyncing(true);
-      const { data, error } = await supabase
-        .from('user_progress')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const { data, error } = await getUserProgress(user.id);
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
         throw error;
@@ -215,6 +164,45 @@ const ScriptRecorder = () => {
       setIsSyncing(false);
     }
   };
+
+  // Update Supabase whenever progress changes
+  useEffect(() => {
+    if (user && !isSyncing) {
+      const saveProgress = async () => {
+        try {
+          setIsSyncing(true);
+          
+          // Save to localStorage
+          const progress: UserProgress = {
+            completedScripts: Array.from(completedScripts),
+            currentCategory,
+            lastUpdated: new Date().toISOString()
+          };
+          localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+
+          // Save to Supabase using the helper function
+          const { error } = await updateUserProgress(user.id, {
+            completed_scripts: Array.from(completedScripts),
+            current_category: currentCategory
+          });
+
+          if (error) throw error;
+        } catch (error) {
+          console.error('Error saving progress:', error);
+          // Show error toast only for non-network errors
+          if (error instanceof Error && !error.message.includes('network')) {
+            toast.error('Failed to save progress');
+          }
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      // Debounce the save operation
+      const timeoutId = setTimeout(saveProgress, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [completedScripts, currentCategory, user]);
 
   const checkMicrophonePermission = async () => {
     try {
@@ -403,8 +391,8 @@ const ScriptRecorder = () => {
       
       const wavBlob = await convertToWav(audioBlob);
       
-      // Create filename with userName_CATEGORY format
-      const fileName = `${userName}_${currentScript.category}.wav`;
+      // Create filename with userName_CATEGORY_scriptId_timestamp format for uniqueness
+      const fileName = `${userName}_${currentScript.category}_${currentScript.id}_${Date.now()}.wav`;
       
       const file = new File([wavBlob], fileName, {
         type: 'audio/wav',
@@ -424,16 +412,27 @@ const ScriptRecorder = () => {
       
       const fileUrl = `${data.path}`;
       
-      await saveRecordingMetadata({
-        user_id: user.id,
-        file_url: fileUrl,
-        duration,
-        title: `${currentScript.category} - ${currentScript.title}`,
-        script_text: currentScript.text,
-        category: currentScript.category,
-        file_size: file.size,
-        mime_type: file.type
-      });
+      try {
+        await saveRecordingMetadata({
+          user_id: user.id,
+          file_url: fileUrl,
+          duration,
+          title: `${currentScript.category} - ${currentScript.title}`,
+          script_text: currentScript.text,
+          category: currentScript.category,
+          file_size: file.size,
+          mime_type: file.type
+        });
+      } catch (metadataError) {
+        console.error('Error saving recording metadata:', metadataError);
+        // Try to delete the uploaded file if metadata save fails
+        try {
+          await supabase.storage.from('recordings').remove([data.path]);
+        } catch (deleteError) {
+          console.error('Error cleaning up file after metadata save failure:', deleteError);
+        }
+        throw new Error(`Failed to save recording metadata: ${metadataError instanceof Error ? metadataError.message : 'Unknown error'}`);
+      }
       
       // Update completed scripts
       const newCompletedScripts = new Set(completedScripts);

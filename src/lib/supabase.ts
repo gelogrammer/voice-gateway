@@ -152,4 +152,50 @@ export const getCurrentUser = async () => {
 
 export const onAuthStateChange = (callback: (event: any, session: any) => void) => {
   return supabase.auth.onAuthStateChange(callback);
+};
+
+// Helper function to get user progress
+export const getUserProgress = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+      console.error('Progress fetch error:', error);
+      throw error;
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching user progress:', error);
+    return { data: null, error };
+  }
+};
+
+// Helper function to update user progress
+export const updateUserProgress = async (userId: string, progress: {
+  completed_scripts: string[];
+  current_category: string;
+}) => {
+  try {
+    const { error } = await supabase
+      .from('user_progress')
+      .upsert({
+        user_id: userId,
+        completed_scripts: progress.completed_scripts,
+        current_category: progress.current_category,
+        last_updated: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    console.error('Error updating user progress:', error);
+    return { error };
+  }
 }; 
