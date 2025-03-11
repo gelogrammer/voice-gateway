@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -8,14 +7,18 @@ import AuthForm from '../components/AuthForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const Login = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (isAdmin) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, isAdmin, navigate]);
   
   return (
     <div className="page-container">

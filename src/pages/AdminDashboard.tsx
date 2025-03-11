@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import NavBar from '../components/NavBar';
-import Footer from '../components/Footer';
 import UserCard, { Recording } from '../components/UserCard';
 import { getAllRecordings, getAllUsers, deleteRecording } from '../utils/supabaseClient';
 import { toast } from "sonner";
@@ -121,138 +119,130 @@ const AdminDashboard = () => {
   });
   
   return (
-    <div className="page-container">
-      <NavBar />
-      
-      <div className="page-content">
-        <div className="container-tight">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-medium animate-fade-in">Admin Dashboard</h1>
-              <p className="text-muted-foreground animate-fade-in">
-                Manage users and recordings
-              </p>
-            </div>
-            
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline"
-                onClick={fetchData}
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCwIcon className="h-4 w-4 mr-1" />
-                )}
-                Refresh
-              </Button>
-              
-              <Button onClick={exportAllData}>
-                <DownloadIcon className="h-4 w-4 mr-1" />
-                Export Data
-              </Button>
-            </div>
-          </div>
+    <div className="container-tight">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-medium animate-fade-in">Admin Dashboard</h1>
+          <p className="text-muted-foreground animate-fade-in">
+            Manage users and recordings
+          </p>
+        </div>
+        
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline"
+            onClick={fetchData}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <RefreshCwIcon className="h-4 w-4 mr-1" />
+            )}
+            Refresh
+          </Button>
           
-          <div className="mb-6">
-            <Input
-              placeholder="Search users or recordings..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-md"
-            />
-          </div>
-          
-          <Tabs defaultValue="recordings" className="animate-fade-in">
-            <TabsList className="grid w-full grid-cols-2 max-w-md mb-8">
-              <TabsTrigger value="recordings">All Recordings</TabsTrigger>
-              <TabsTrigger value="users">Users</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="recordings" className="mt-4 animate-fade-in">
-              <h2 className="text-xl font-medium mb-6">All Voice Recordings</h2>
-              
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : filteredRecordings.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {filteredRecordings.map((recording) => (
-                    <UserCard
-                      key={recording.id}
-                      recording={recording}
-                      onDelete={handleDeleteRecording}
-                      showUser={true}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>No recordings found</CardTitle>
-                    <CardDescription>
-                      {searchTerm 
-                        ? 'No recordings match your search criteria' 
-                        : 'No recordings have been uploaded yet'}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="users" className="mt-4 animate-fade-in">
-              <h2 className="text-xl font-medium mb-6">Registered Users</h2>
-              
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : filteredUsers.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredUsers.map((user) => (
-                    <Card key={user.id} className="animate-fade-in hover:shadow-md transition-all">
-                      <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="p-2 rounded-full bg-voice-blue/10 text-voice-blue">
-                            <UserIcon size={16} />
-                          </div>
-                          <CardTitle className="text-lg">{user.full_name || 'Unnamed User'}</CardTitle>
-                        </div>
-                        <div className="text-xs px-2 py-1 rounded bg-secondary">
-                          {user.role}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-2">
-                        <p className="text-sm text-muted-foreground">
-                          {user.email}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Joined: {new Date(user.created_at).toLocaleDateString()}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>No users found</CardTitle>
-                    <CardDescription>
-                      {searchTerm 
-                        ? 'No users match your search criteria' 
-                        : 'No users have registered yet'}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              )}
-            </TabsContent>
-          </Tabs>
+          <Button onClick={exportAllData}>
+            <DownloadIcon className="h-4 w-4 mr-1" />
+            Export Data
+          </Button>
         </div>
       </div>
       
-      <Footer />
+      <div className="mb-6">
+        <Input
+          placeholder="Search users or recordings..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
+      
+      <Tabs defaultValue="recordings" className="animate-fade-in">
+        <TabsList className="grid w-full grid-cols-2 max-w-md mb-8">
+          <TabsTrigger value="recordings">All Recordings</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="recordings" className="mt-4 animate-fade-in">
+          <h2 className="text-xl font-medium mb-6">All Voice Recordings</h2>
+          
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredRecordings.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredRecordings.map((recording) => (
+                <UserCard
+                  key={recording.id}
+                  recording={recording}
+                  onDelete={handleDeleteRecording}
+                  showUser={true}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>No recordings found</CardTitle>
+                <CardDescription>
+                  {searchTerm 
+                    ? 'No recordings match your search criteria' 
+                    : 'No recordings have been uploaded yet'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="users" className="mt-4 animate-fade-in">
+          <h2 className="text-xl font-medium mb-6">Registered Users</h2>
+          
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredUsers.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredUsers.map((user) => (
+                <Card key={user.id} className="animate-fade-in hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-2 rounded-full bg-voice-blue/10 text-voice-blue">
+                        <UserIcon size={16} />
+                      </div>
+                      <CardTitle className="text-lg">{user.full_name || 'Unnamed User'}</CardTitle>
+                    </div>
+                    <div className="text-xs px-2 py-1 rounded bg-secondary">
+                      {user.role}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Joined: {new Date(user.created_at).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>No users found</CardTitle>
+                <CardDescription>
+                  {searchTerm 
+                    ? 'No users match your search criteria' 
+                    : 'No users have registered yet'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

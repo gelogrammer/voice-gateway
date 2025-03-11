@@ -9,58 +9,105 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
     autoRefreshToken: true,
-    storage: localStorage // Enable local storage for session persistence
+    storage: localStorage
   }
 });
+
+// Helper function to get user profile
+export const getUserProfile = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Profile fetch error:', error);
+      throw error;
+    }
+
+    console.log('Profile data:', data); // Debug log
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return { data: null, error };
+  }
+};
+
+// Helper function to get recordings
+export const getRecordings = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('recordings')
+      .select(`
+        *,
+        profiles!recordings_user_id_fkey (
+          full_name,
+          email
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error in getRecordings:', error);
+    throw error;
+  }
+};
+
+// Helper function to get all recordings (admin only)
+export const getAllRecordings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('recordings')
+      .select(`
+        *,
+        profiles!recordings_user_id_fkey (
+          full_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error in getAllRecordings:', error);
+    throw error;
+  }
+};
+
+// Helper function to get all users (admin only)
+export const getAllUsers = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error in getAllUsers:', error);
+    throw error;
+  }
+};
 
 // Auth helper functions
 export const signUp = async (email: string, password: string) => {
   try {
-    // Create new user with auto-confirm
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}`,
-        data: {
-          email_confirmed_at: new Date().toISOString() // Only set email_confirmed_at
-        }
+        emailRedirectTo: `${window.location.origin}/login`
       }
     });
 
-    if (error) {
-      // If user exists, try to sign in
-      if (error.message?.includes('User already registered')) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        if (!signInError) {
-          return { data: signInData, error: null };
-        }
-      }
-      throw error;
-    }
-
-    if (data?.user) {
-      // Update user metadata
-      await supabase.auth.updateUser({
-        data: {
-          email_confirmed_at: new Date().toISOString()
-        }
-      });
-
-      // Sign in the user immediately
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (!signInError) {
-        return { data: signInData, error: null };
-      }
-    }
-
+    if (error) throw error;
     return { data, error: null };
   } catch (error) {
     console.error('Signup error:', error);
@@ -74,6 +121,8 @@ export const signIn = async (email: string, password: string) => {
       email,
       password
     });
+
+    if (error) throw error;
     return { data, error };
   } catch (error) {
     console.error('Sign in error:', error);
@@ -83,7 +132,8 @@ export const signIn = async (email: string, password: string) => {
 
 export const signOut = async () => {
   try {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     return { error: null };
   } catch (error) {
     return { error };

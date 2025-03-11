@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +30,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
     try {
       if (type === 'login') {
         await login(email, password);
-        navigate('/dashboard');
       } else {
         await register(email, password, fullName);
         toast.success('Registration successful! Please log in.');
