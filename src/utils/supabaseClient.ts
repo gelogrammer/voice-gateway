@@ -87,36 +87,105 @@ export const saveRecordingMetadata = async ({
 };
 
 export const getAllRecordings = async () => {
-  const { data, error } = await supabase
-    .from('user_recordings')
-    .select(`
-      id,
-      user_id,
-      file_url,
-      duration,
-      title,
-      script_text,
-      category,
-      file_size,
-      mime_type,
-      is_processed,
-      waveform_data,
-      transcription,
-      created_at,
-      updated_at,
-      user:user_id (
-        full_name,
-        email
-      )
-    `)
-    .order('created_at', { ascending: false });
+  try {
+    // First, list all files in the recordings bucket
+    const { data: folders, error: foldersError } = await supabase
+      .storage
+      .from('recordings')
+      .list('', {
+        limit: 100,
+        sortBy: { column: 'name', order: 'asc' }
+      });
 
-  if (error) {
-    console.error('Error fetching recordings:', error);
+    if (foldersError) {
+      console.error('Error listing folders:', foldersError);
+      throw foldersError;
+    }
+
+    if (!folders || folders.length === 0) {
+      return [];
+    }
+
+    // Get files from each folder
+    const allRecordings = [];
+    for (const folder of folders) {
+      if (folder.metadata?.isFolder || !folder.name.includes('.')) {
+        // List files in the folder
+        const { data: files, error: filesError } = await supabase
+          .storage
+          .from('recordings')
+          .list(folder.name, {
+            limit: 100,
+            sortBy: { column: 'created_at', order: 'desc' }
+          });
+
+        if (filesError) {
+          console.error(`Error listing files in folder ${folder.name}:`, filesError);
+          continue;
+        }
+
+        if (files && files.length > 0) {
+          // Add folder files to recordings
+          const folderRecordings = files.map(file => ({
+            id: file.id || `${folder.name}/${file.name}`,
+            title: file.name,
+            description: `Recording from ${folder.name}`,
+            duration: 0,
+            file_url: `${folder.name}/${file.name}`,
+            created_at: file.created_at || new Date().toISOString(),
+            updated_at: file.updated_at || new Date().toISOString(),
+            user_id: folder.name,
+            file_size: file.metadata?.size || 0,
+            mime_type: file.metadata?.mimetype || 'audio/wav',
+            is_processed: true,
+            category: folder.name
+          }));
+          allRecordings.push(...folderRecordings);
+        }
+      } else {
+        // It's a file in the root directory
+        allRecordings.push({
+          id: folder.id || folder.name,
+          title: folder.name,
+          description: 'Root directory recording',
+          duration: 0,
+          file_url: folder.name,
+          created_at: folder.created_at || new Date().toISOString(),
+          updated_at: folder.updated_at || new Date().toISOString(),
+          user_id: 'root',
+          file_size: folder.metadata?.size || 0,
+          mime_type: folder.metadata?.mimetype || 'audio/wav',
+          is_processed: true,
+          category: 'root'
+        });
+      }
+    }
+
+    // Try to get signed URLs for each recording
+    const recordingsWithUrls = await Promise.all(
+      allRecordings.map(async (recording) => {
+        try {
+          const { data: urlData } = await supabase
+            .storage
+            .from('recordings')
+            .createSignedUrl(recording.file_url, 3600); // 1 hour expiry
+
+          return {
+            ...recording,
+            file_url: urlData?.signedUrl || recording.file_url
+          };
+        } catch (error) {
+          console.error('Error getting signed URL:', error);
+          return recording;
+        }
+      })
+    );
+
+    return recordingsWithUrls;
+  } catch (error) {
+    console.error('Error in getAllRecordings:', error);
     throw error;
   }
-
-  return data;
 };
 
 export const getAllUsers = async () => {
