@@ -1,18 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getRecordings } from '../lib/supabase';
+import { getRecordings, deleteRecording } from '../utils/supabaseClient';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { RefreshCw, MicIcon, BarChart2Icon } from 'lucide-react';
+import { toast } from 'sonner';
+import ScriptRecorder from '../components/ScriptRecorder';
+import UserCard from '../components/UserCard';
+import { scripts } from '../data/recordingScripts';
 
 interface Recording {
   id: string;
   created_at: string;
-  file_path: string;
-  status: string;
-  transcription?: string;
-  analysis?: string;
+  title: string;
+  description?: string;
+  file_url: string;
+  duration: number;
+  user_id: string;
   profiles: {
     full_name: string;
     email: string;
@@ -23,6 +30,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('record');
 
   const fetchRecordings = async () => {
     if (!user) return;
@@ -47,64 +55,151 @@ const Dashboard = () => {
     return <LoadingSpinner />;
   }
 
+  const handleDeleteRecording = async (id: string) => {
+    try {
+      await deleteRecording(id);
+      setRecordings(recordings.filter(rec => rec.id !== id));
+      toast.success('Recording deleted successfully');
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+      toast.error('Failed to delete recording');
+    }
+  };
+
+  // Calculate progress statistics
+  const totalScripts = scripts.length;
+  const completedScripts = recordings.length;
+  const progressPercentage = (completedScripts / totalScripts) * 100;
+
+  // Group recordings by category
+  const recordingsByCategory = recordings.reduce((acc, recording) => {
+    const category = recording.title.split(' - ')[0];
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(recording);
+    return acc;
+  }, {} as Record<string, Recording[]>);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">User Dashboard</h1>
-          <p className="text-gray-600">Record and manage your voice samples for analysis</p>
-        </div>
-        <Button onClick={fetchRecordings} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-3xl font-bold">Voice Recording Dashboard</CardTitle>
+                  <CardDescription className="mt-2 text-lg">
+                    Record and analyze your voice samples for speech pattern analysis
+                  </CardDescription>
+                </div>
+                <Button onClick={fetchRecordings} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
 
-      <div className="flex space-x-4">
-        <Button variant="secondary" className="flex-1">
-          My Recordings
-        </Button>
-        <Button variant="outline" className="flex-1">
-          Record New
-        </Button>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Your Voice Recordings</h2>
-          
-          {recordings.length === 0 ? (
-            <div className="text-center py-8">
-              <h3 className="text-lg font-medium">No recordings yet</h3>
-              <p className="text-gray-600 mt-2">Record your first voice sample to get started</p>
-              <Button className="mt-4">Record Now</Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recordings.map((recording) => (
-                <div
-                  key={recording.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{new Date(recording.created_at).toLocaleString()}</p>
-                      <p className="text-sm text-gray-600">Status: {recording.status}</p>
-                    </div>
-                    <div className="space-x-2">
-                      <Button variant="outline" size="sm">
-                        Play
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        Details
-                      </Button>
-                    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-medium">Progress Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium">Total Progress</span>
+                    <span className="text-sm text-muted-foreground">
+                      {completedScripts}/{totalScripts} Scripts
+                    </span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-2" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-primary/10 rounded-lg p-3 text-center">
+                    <MicIcon className="h-5 w-5 mx-auto mb-1 text-primary" />
+                    <div className="text-2xl font-bold">{completedScripts}</div>
+                    <div className="text-xs text-muted-foreground">Recordings</div>
+                  </div>
+                  <div className="bg-primary/10 rounded-lg p-3 text-center">
+                    <BarChart2Icon className="h-5 w-5 mx-auto mb-1 text-primary" />
+                    <div className="text-2xl font-bold">{progressPercentage.toFixed(0)}%</div>
+                    <div className="text-xs text-muted-foreground">Complete</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab} 
+          className="space-y-4"
+        >
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto bg-muted/50 p-1 rounded-lg">
+            <TabsTrigger 
+              value="record"
+              className="data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <MicIcon className="h-4 w-4 mr-2" />
+              Record New
+            </TabsTrigger>
+            <TabsTrigger 
+              value="recordings"
+              className="data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <BarChart2Icon className="h-4 w-4 mr-2" />
+              My Recordings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="record" className="mt-6 focus-visible:outline-none">
+            <ScriptRecorder />
+          </TabsContent>
+
+          <TabsContent value="recordings" className="mt-6 focus-visible:outline-none">
+            {recordings.length === 0 ? (
+              <Card>
+                <CardHeader className="text-center">
+                  <CardTitle>No recordings yet</CardTitle>
+                  <CardDescription>
+                    Start by recording your first voice sample using the scripts provided.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <Button 
+                    onClick={() => setActiveTab('record')}
+                    size="lg"
+                    className="mt-4"
+                  >
+                    <MicIcon className="h-4 w-4 mr-2" />
+                    Start Recording
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-8">
+                {Object.entries(recordingsByCategory).map(([category, categoryRecordings]) => (
+                  <div key={category}>
+                    <h3 className="text-lg font-semibold mb-4">{category}</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {categoryRecordings.map((recording) => (
+                        <UserCard
+                          key={recording.id}
+                          recording={recording}
+                          onDelete={handleDeleteRecording}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
