@@ -210,7 +210,7 @@ export const uploadRecording = async (file: File, userId: string, title: string,
 };
 
 // Voice recording upload helper
-export const uploadVoiceRecording = async (file: File, userId: string) => {
+export const uploadVoiceRecording = async (file: File, userId: string, userEmail: string) => {
   try {
     // Validate file
     if (!file) {
@@ -225,8 +225,14 @@ export const uploadVoiceRecording = async (file: File, userId: string) => {
       throw new Error('Invalid file type. Only WAV, WebM, and MP3 files are allowed');
     }
 
+    // Create folder name from email (remove special characters)
+    const folderName = userEmail
+      .split('@')[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+
     // Use the original filename without timestamp
-    const filePath = `${userId}/${file.name}`;
+    const filePath = `${folderName}/${file.name}`;
 
     // Upload to storage
     const { data, error: uploadError } = await supabase.storage

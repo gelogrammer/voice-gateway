@@ -349,7 +349,7 @@ const ScriptRecorder = () => {
       // Show upload progress toast
       const uploadToast = toast.loading('Uploading recording...');
 
-      // Get user's email from auth.users
+      // Get user's email
       const userEmail = user.email;
       if (!userEmail) {
         throw new Error('User email not found');
@@ -376,7 +376,7 @@ const ScriptRecorder = () => {
         return;
       }
       
-      const data = await uploadVoiceRecording(file, user.id);
+      const data = await uploadVoiceRecording(file, user.id, userEmail);
       
       if (!data) {
         throw new Error('Failed to upload recording');
