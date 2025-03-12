@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useProgress } from '../context/ProgressContext';
 import { getRecordings, deleteRecording } from '../utils/supabaseClient';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import {
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
+  const { totalRecordings, completionPercentage, updateProgress, isLoading: progressLoading } = useProgress();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,9 @@ const Dashboard = () => {
         profiles: recording.profiles || []
       }));
       setRecordings(formattedRecordings);
+      
+      // Update progress after fetching recordings
+      await updateProgress();
     } catch (error) {
       console.error('Error fetching recordings:', error);
       setError('Failed to load recordings. Please try again.');
@@ -99,27 +104,14 @@ const Dashboard = () => {
     try {
       await deleteRecording(id);
       setRecordings(recordings.filter(rec => rec.id !== id));
+      // Update progress after deleting recording
+      await updateProgress();
       toast.success('Recording deleted successfully');
     } catch (error) {
       console.error('Error deleting recording:', error);
       toast.error('Failed to delete recording');
     }
   };
-
-  // Calculate progress statistics
-  const totalScripts = scripts.length;
-  const completedScripts = recordings.length;
-  const progressPercentage = (completedScripts / totalScripts) * 100;
-
-  // Group recordings by category
-  const recordingsByCategory = recordings.reduce((acc, recording) => {
-    const category = recording.title.split(' - ')[0];
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(recording);
-    return acc;
-  }, {} as Record<string, Recording[]>);
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 bg-background min-h-screen">
@@ -194,20 +186,20 @@ const Dashboard = () => {
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium">Total Progress</span>
                     <span className="text-sm text-muted-foreground">
-                      {completedScripts}/{totalScripts} Scripts
+                      {totalRecordings}/{scripts.length} Scripts
                     </span>
                   </div>
-                  <Progress value={progressPercentage} className="h-2" />
+                  <Progress value={completionPercentage} className="h-2" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-primary/10 rounded-lg p-3 text-center hover:bg-primary/15 transition-colors">
                     <MicIcon className="h-5 w-5 mx-auto mb-1 text-primary" />
-                    <div className="text-2xl font-bold">{completedScripts}</div>
+                    <div className="text-2xl font-bold">{totalRecordings}</div>
                     <div className="text-xs text-muted-foreground">Recordings</div>
                   </div>
                   <div className="bg-primary/10 rounded-lg p-3 text-center hover:bg-primary/15 transition-colors">
                     <BarChart2Icon className="h-5 w-5 mx-auto mb-1 text-primary" />
-                    <div className="text-2xl font-bold">{progressPercentage.toFixed(0)}%</div>
+                    <div className="text-2xl font-bold">{completionPercentage}%</div>
                     <div className="text-xs text-muted-foreground">Complete</div>
                   </div>
                 </div>
@@ -217,11 +209,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main Tabs Section */}
-        <Tabs 
-          value={activeTab} 
-          onValueChange={setActiveTab} 
-          className="space-y-4"
-        >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="flex justify-center mb-6">
             <TabsList className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full bg-white p-1 shadow-[0_2px_10px] shadow-black/5">
               <TabsTrigger 
@@ -241,12 +229,9 @@ const Dashboard = () => {
             </TabsList>
           </div>
 
-          <TabsContent value="record" className="focus-visible:outline-none">
+          <TabsContent value="record" className="mt-6 focus-visible:outline-none">
             <Card className="border-2 border-primary/20">
-              <CardHeader>
-              
-              </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <ScriptRecorder />
               </CardContent>
             </Card>
@@ -272,7 +257,11 @@ const Dashboard = () => {
                   ) : (
                     <div className="space-y-4">
                       {recordings.map((recording) => (
-                        <RecordingCard key={recording.id} recording={recording} />
+                        <RecordingCard 
+                          key={recording.id} 
+                          recording={recording} 
+                          onDelete={handleDeleteRecording}
+                        />
                       ))}
                     </div>
                   )}

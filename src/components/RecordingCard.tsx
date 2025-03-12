@@ -10,7 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface RecordingCardProps {
   recording: Recording;
-  onDelete?: () => void;
+  onDelete?: (id: string) => void;
 }
 
 const RecordingCard = ({ recording, onDelete }: RecordingCardProps) => {
@@ -103,7 +103,7 @@ const RecordingCard = ({ recording, onDelete }: RecordingCardProps) => {
     try {
       await deleteRecording(recording.id);
       toast.success('Recording deleted successfully');
-      onDelete?.();
+      onDelete?.(recording.id);
     } catch (error) {
       console.error('Error deleting recording:', error);
       toast.error('Failed to delete recording');

@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useProgress } from '@/context/ProgressContext';
+import ProgressOverview from './ProgressOverview';
 
 const RECORDING_TIME_LIMIT = 7; // 7 seconds
 const COUNTDOWN_TIME = 3; // 3 seconds countdown before recording
@@ -241,6 +243,14 @@ const ScriptRecorder = () => {
   const progressSubscription = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const recordingsSubscription = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  // Add forceUpdate state to trigger re-renders
+  const [forceUpdateKey, setForceUpdateKey] = useState(0);
+
+  // Add new state for Progress Overview
+  const [totalRecordings, setTotalRecordings] = useState(0);
+  const [completionPercentage, setCompletionPercentage] = useState(0);
+  const { updateProgress } = useProgress();
+
   useEffect(() => {
     if (audioRef.current && audioUrl) {
       audioRef.current.src = audioUrl;
@@ -286,7 +296,7 @@ const ScriptRecorder = () => {
     }
   }, [user]);
 
-  // Set up real-time subscriptions
+  // Update the useEffect for Supabase subscriptions
   useEffect(() => {
     if (!user) return;
 
@@ -313,6 +323,12 @@ const ScriptRecorder = () => {
               lastUpdated: new Date().toISOString()
             };
             localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+            
+            // Update Progress Overview immediately
+            await updateProgressOverview();
+            
+            // Force re-render
+            setForceUpdateKey(prev => prev + 1);
           }
         }
       )
@@ -328,17 +344,30 @@ const ScriptRecorder = () => {
           table: 'user_recordings',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
-          // Handle recording changes if needed
-          if (payload.eventType === 'DELETE') {
-            // You might want to update UI or state here
-            toast.success('Recording deleted successfully');
+        async (payload) => {
+          // Handle any recording changes
+          if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            // Update Progress Overview immediately
+            await updateProgressOverview();
+            
+            // Force re-render
+            setForceUpdateKey(prev => prev + 1);
+            
+            if (payload.eventType === 'DELETE') {
+              toast.success('Recording deleted successfully');
+            }
           }
         }
       )
       .subscribe();
 
-    // Cleanup subscriptions
+    // Poll for updates every 5 seconds as a fallback
+    const pollInterval = setInterval(async () => {
+      await updateProgressOverview();
+      await syncWithSupabase();
+    }, 5000);
+
+    // Cleanup subscriptions and interval
     return () => {
       if (progressSubscription.current) {
         supabase.removeChannel(progressSubscription.current);
@@ -346,38 +375,53 @@ const ScriptRecorder = () => {
       if (recordingsSubscription.current) {
         supabase.removeChannel(recordingsSubscription.current);
       }
+      clearInterval(pollInterval);
     };
   }, [user]);
 
-  // Update syncWithSupabase to handle real-time updates
+  // Update syncWithSupabase to be more comprehensive
   const syncWithSupabase = async () => {
     if (!user) return;
 
     try {
       setIsSyncing(true);
-      const { data, error } = await getUserProgress(user.id);
+      const { data: progressData, error: progressError } = await getUserProgress(user.id);
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (progressError && progressError.code !== 'PGRST116') {
+        throw progressError;
       }
 
-      if (data) {
+      if (progressData) {
         // Compare timestamps before updating
         const localProgress = localStorage.getItem(`userProgress_${user.id}`);
         const localData = localProgress ? JSON.parse(localProgress) : null;
         
-        if (!localData || new Date(data.last_updated) > new Date(localData.lastUpdated)) {
-          setCompletedScripts(new Set(data.completed_scripts));
-          setCurrentCategory(data.current_category);
+        if (!localData || new Date(progressData.last_updated) > new Date(localData.lastUpdated)) {
+          setCompletedScripts(new Set(progressData.completed_scripts));
+          setCurrentCategory(progressData.current_category);
           
           // Update localStorage
           const progress = {
-            completedScripts: data.completed_scripts,
-            currentCategory: data.current_category,
-            lastUpdated: data.last_updated
+            completedScripts: progressData.completed_scripts,
+            currentCategory: progressData.current_category,
+            lastUpdated: progressData.last_updated
           };
           localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+          
+          // Update Progress Overview
+          await updateProgressOverview();
+          
+          // Force re-render
+          setForceUpdateKey(prev => prev + 1);
         }
+      }
+
+      // Also check recordings count
+      const currentCount = await checkRecordingCount();
+      if (currentCount !== totalRecordings) {
+        setTotalRecordings(currentCount);
+        // Force re-render
+        setForceUpdateKey(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error syncing with Supabase:', error);
@@ -587,6 +631,33 @@ const ScriptRecorder = () => {
     setCountdown(0);
   };
   
+  // Add function to update Progress Overview stats
+  const updateProgressOverview = async () => {
+    if (!user) return;
+    
+    try {
+      // Get total recordings count
+      const recordingsCount = await checkRecordingCount();
+      setTotalRecordings(recordingsCount);
+      
+      // Calculate completion percentage
+      const totalScripts = scripts.length;
+      const completedCount = completedScripts.size;
+      const percentage = Math.round((completedCount / totalScripts) * 100);
+      setCompletionPercentage(percentage);
+    } catch (error) {
+      console.error('Error updating progress overview:', error);
+    }
+  };
+
+  // Update useEffect to initialize Progress Overview
+  useEffect(() => {
+    if (user) {
+      updateProgressOverview();
+    }
+  }, [user]);
+
+  // Update handleSubmit function
   const handleSubmit = async () => {
     if (!user || !audioBlob || !currentScript) {
       toast.error('Missing required data for saving recording');
@@ -659,13 +730,15 @@ const ScriptRecorder = () => {
       // Update completed scripts
       const newCompletedScripts = new Set(completedScripts);
       newCompletedScripts.add(currentScript.id);
-      setCompletedScripts(newCompletedScripts);
       
-      // Sync progress with Supabase
+      // Update progress in Supabase
       await updateUserProgress(user.id, {
         completed_scripts: Array.from(newCompletedScripts),
         current_category: currentCategory
       });
+      
+      // Update local state immediately
+      setCompletedScripts(newCompletedScripts);
       
       // Update localStorage
       const progress = {
@@ -675,10 +748,22 @@ const ScriptRecorder = () => {
       };
       localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
       
+      // Update Progress Overview immediately
+      await updateProgressOverview();
+      
+      // Force immediate sync
+      await syncWithSupabase();
+      
+      // Force re-render
+      setForceUpdateKey(prev => prev + 1);
+      
       toast.success('Recording saved successfully!', {
         id: uploadToast
       });
       resetRecording();
+      
+      // Update progress using context
+      await updateProgress();
     } catch (error) {
       console.error('Error saving recording:', error);
       toast.error(
@@ -752,6 +837,37 @@ const ScriptRecorder = () => {
     }
   };
 
+  // Update syncAfterReset function
+  const syncAfterReset = async () => {
+    try {
+      // Sync with Supabase to get latest state
+      const { data, error } = await getUserProgress(user.id);
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        // Update local state with latest data
+        setCompletedScripts(new Set(data.completed_scripts));
+        setCurrentCategory(data.current_category);
+        
+        // Update localStorage
+        const progress = {
+          completedScripts: data.completed_scripts,
+          currentCategory: data.current_category,
+          lastUpdated: data.last_updated
+        };
+        localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+        
+        // Force a re-render of progress components
+        setForceUpdateKey(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error syncing after reset:', error);
+    }
+  };
+
   // Update resetCategoryProgress function
   const resetCategoryProgress = async (categoryId: string) => {
     if (!user) return;
@@ -776,7 +892,7 @@ const ScriptRecorder = () => {
       
       if (error) throw error;
       
-      // Update local state
+      // Update local state immediately
       setCompletedScripts(new Set(filteredScripts));
       
       // Update localStorage
@@ -787,14 +903,63 @@ const ScriptRecorder = () => {
       };
       localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
       
+      // Delete recordings for this category
+      await deleteCategoryRecordings(categoryId);
+      
+      // Update Progress Overview
+      await updateProgressOverview();
+      
+      // Force re-render
+      setForceUpdateKey(prev => prev + 1);
+      
       toast.success(`Progress reset for ${categoryId}`);
+      
+      // Update progress using context
+      await updateProgress();
     } catch (error) {
       console.error('Error resetting category progress:', error);
-      toast.error('Failed to reset category progress');
+      console.error('Error deleting category recordings:', error);
+      toast.error('Failed to delete category recordings');
     } finally {
       setIsResetting(false);
-      setResetDialogState(prev => ({ ...prev, isOpen: false }));
+      setDeleteDialogState(prev => ({ ...prev, isOpen: false }));
     }
+  };
+
+  // Add function to check recording count
+  const checkRecordingCount = async (categoryId?: string) => {
+    if (!user) return 0;
+    
+    try {
+      const query = supabase
+        .from('user_recordings')
+        .select('id', { count: 'exact' })
+        .eq('user_id', user.id);
+        
+      if (categoryId) {
+        query.eq('category', categoryId);
+      }
+      
+      const { count, error } = await query;
+      
+      if (error) throw error;
+      
+      return count || 0;
+    } catch (error) {
+      console.error('Error checking recording count:', error);
+      return 0;
+    }
+  };
+
+  // Add function to handle delete dialog open
+  const handleDeleteDialogOpen = async (type: 'all' | 'category', categoryId?: string) => {
+    const count = await checkRecordingCount(categoryId);
+    setDeleteDialogState({
+      isOpen: true,
+      type,
+      categoryId,
+      recordingCount: count
+    });
   };
 
   // Update deleteAllRecordings function
@@ -836,6 +1001,9 @@ const ScriptRecorder = () => {
           .eq('user_id', user.id);
         
         if (deleteError) throw deleteError;
+        
+        // Sync with Supabase to ensure we have latest state
+        await syncAfterReset();
         
         toast.success('All recordings deleted successfully');
       } else {
@@ -892,6 +1060,9 @@ const ScriptRecorder = () => {
         
         if (deleteError) throw deleteError;
         
+        // Update progress using context
+        await updateProgress();
+        
         toast.success(`Recordings deleted for ${categoryId}`);
       } else {
         toast.info(`No recordings to delete for ${categoryId}`);
@@ -903,42 +1074,6 @@ const ScriptRecorder = () => {
       setIsResetting(false);
       setDeleteDialogState(prev => ({ ...prev, isOpen: false }));
     }
-  };
-
-  // Add function to check recording count
-  const checkRecordingCount = async (categoryId?: string) => {
-    if (!user) return 0;
-    
-    try {
-      const query = supabase
-        .from('user_recordings')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id);
-        
-      if (categoryId) {
-        query.eq('category', categoryId);
-      }
-      
-      const { count, error } = await query;
-      
-      if (error) throw error;
-      
-      return count || 0;
-    } catch (error) {
-      console.error('Error checking recording count:', error);
-      return 0;
-    }
-  };
-
-  // Add function to handle delete dialog open
-  const handleDeleteDialogOpen = async (type: 'all' | 'category', categoryId?: string) => {
-    const count = await checkRecordingCount(categoryId);
-    setDeleteDialogState({
-      isOpen: true,
-      type,
-      categoryId,
-      recordingCount: count
-    });
   };
 
   return (
@@ -1384,7 +1519,7 @@ const ScriptRecorder = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* Categories Panel - Hidden on mobile */}
-        <Card className="hidden md:block md:col-span-1 border border-border/50 shadow-sm">
+        <Card key={forceUpdateKey} className="hidden md:block md:col-span-1 border border-border/50 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg">
               <MicIcon className="h-5 w-5 text-primary" />
@@ -1713,6 +1848,37 @@ const ScriptRecorder = () => {
         count={deleteDialogState.recordingCount}
         isLoading={isResetting}
       />
+
+      {/* Progress Overview Card */}
+      <Card key={forceUpdateKey} className="mb-4 sm:mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart2Icon className="h-5 w-5 text-primary" />
+            Progress Overview
+          </CardTitle>
+          <CardDescription>
+            Track your recording progress and completion status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <MicIcon className="h-4 w-4 text-primary" />
+                <span className="font-medium">Recordings</span>
+              </div>
+              <div className="text-3xl font-bold text-primary">{totalRecordings}</div>
+            </div>
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart2Icon className="h-4 w-4 text-primary" />
+                <span className="font-medium">Complete</span>
+              </div>
+              <div className="text-3xl font-bold text-primary">{completionPercentage}%</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

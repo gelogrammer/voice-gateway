@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
+import { ProgressProvider } from './context/ProgressContext';
 import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -24,28 +25,30 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Toaster position="top-right" />
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* User Routes */}
-          <Route element={<UserLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Route>
+        <ProgressProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* User Routes */}
+            <Route element={<UserLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route element={<AdminLayout />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Route>
+            {/* Admin Routes */}
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+            </Route>
 
-          {/* Root Route */}
-          <Route path="/" element={<RootRedirect />} />
+            {/* Root Route */}
+            <Route path="/" element={<RootRedirect />} />
 
-          {/* Catch all - redirect to appropriate dashboard */}
-          <Route path="*" element={<RootRedirect />} />
-        </Routes>
+            {/* Catch all - redirect to appropriate dashboard */}
+            <Route path="*" element={<RootRedirect />} />
+          </Routes>
+          <Toaster />
+        </ProgressProvider>
       </AuthProvider>
     </Router>
   );
