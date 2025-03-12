@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DownloadIcon, TrashIcon, PlayIcon, FileAudioIcon } from 'lucide-react';
+import { DownloadIcon, TrashIcon, PlayIcon, PauseIcon, FileAudioIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from "sonner";
 import { supabase } from '../utils/supabaseClient';
@@ -33,6 +33,10 @@ type UserCardProps = {
 };
 
 const UserCard: React.FC<UserCardProps> = ({ recording, onDelete, showUser = false, viewMode = 'list' }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
@@ -71,29 +75,45 @@ const UserCard: React.FC<UserCardProps> = ({ recording, onDelete, showUser = fal
   
   const handlePlay = async () => {
     try {
-      // If we already have a signed URL, use it directly
-      if (recording.file_url.includes('?token=')) {
-        const audio = new Audio(recording.file_url);
-        audio.play();
+      if (isPlaying && audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
         return;
       }
 
-      // Otherwise, get a new signed URL
-      const { data, error } = await supabase
-        .storage
-        .from('recordings')
-        .createSignedUrl(recording.file_url, 60); // 60 seconds expiry
-        
-      if (error) throw error;
-      
-      if (data?.signedUrl) {
-        // Create an audio element and play
-        const audio = new Audio(data.signedUrl);
-        audio.play();
+      setIsLoading(true);
+
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+        };
       }
+
+      // If we already have a signed URL, use it directly
+      if (recording.file_url.includes('?token=')) {
+        audioRef.current.src = recording.file_url;
+      } else {
+        // Otherwise, get a new signed URL
+        const { data, error } = await supabase
+          .storage
+          .from('recordings')
+          .createSignedUrl(recording.file_url, 60); // 60 seconds expiry
+          
+        if (error) throw error;
+        
+        if (data?.signedUrl) {
+          audioRef.current.src = data.signedUrl;
+        }
+      }
+
+      await audioRef.current.play();
+      setIsPlaying(true);
     } catch (error) {
       console.error('Error playing recording:', error);
       toast.error('Failed to play recording');
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -181,8 +201,15 @@ const UserCard: React.FC<UserCardProps> = ({ recording, onDelete, showUser = fal
                   size="icon" 
                   onClick={handlePlay}
                   className="h-8 w-8"
+                  disabled={isLoading}
                 >
-                  <PlayIcon size={16} />
+                  {isLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : isPlaying ? (
+                    <PauseIcon size={16} />
+                  ) : (
+                    <PlayIcon size={16} />
+                  )}
                 </Button>
                 <Button 
                   variant="ghost" 
@@ -233,8 +260,15 @@ const UserCard: React.FC<UserCardProps> = ({ recording, onDelete, showUser = fal
               size="icon" 
               onClick={handlePlay}
               className="h-8 w-8"
+              disabled={isLoading}
             >
-              <PlayIcon size={16} />
+              {isLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : isPlaying ? (
+                <PauseIcon size={16} />
+              ) : (
+                <PlayIcon size={16} />
+              )}
             </Button>
             <Button 
               variant="ghost" 

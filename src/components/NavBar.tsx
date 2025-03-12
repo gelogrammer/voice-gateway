@@ -13,44 +13,9 @@ const NavBar = () => {
     <>
       {isAdmin ? (
         <>
-          <Link 
-            to="/admin" 
-            className="block py-3 px-4 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors md:text-base md:px-2 md:py-1"
-            onClick={() => setIsOpen(false)}
-          >
-            Admin Dashboard
-          </Link>
-          <Link 
-            to="/admin/users" 
-            className="block py-3 px-4 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors md:text-base md:px-2 md:py-1"
-            onClick={() => setIsOpen(false)}
-          >
-            Manage Users
-          </Link>
-          <Link 
-            to="/admin/recordings" 
-            className="block py-3 px-4 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors md:text-base md:px-2 md:py-1"
-            onClick={() => setIsOpen(false)}
-          >
-            All Recordings
-          </Link>
         </>
       ) : (
         <>
-          <Link 
-            to="/dashboard" 
-            className="block py-3 px-4 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors md:text-base md:px-2 md:py-1"
-            onClick={() => setIsOpen(false)}
-          >
-            Dashboard
-          </Link>
-          <Link 
-            to="/dashboard/recordings" 
-            className="block py-3 px-4 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors md:text-base md:px-2 md:py-1"
-            onClick={() => setIsOpen(false)}
-          >
-            My Recordings
-          </Link>
         </>
       )}
     </>
