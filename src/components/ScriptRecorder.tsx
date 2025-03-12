@@ -253,7 +253,9 @@ const ScriptRecorder = () => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: false, // Disable auto gain control
+          sampleRate: 44100,
+          channelCount: 1
         } 
       });
       stream.getTracks().forEach(track => track.stop());
@@ -319,13 +321,51 @@ const ScriptRecorder = () => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
+          autoGainControl: false, // Disable auto gain control to prevent volume fluctuation
           sampleRate: 44100,
           channelCount: 1
         } 
       });
       
-      mediaRecorder.current = new MediaRecorder(stream, {
+      // Create an AudioContext for processing
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      // Create a pre-amplifier gain node to boost input signal
+      const preGain = audioContext.createGain();
+      preGain.gain.value = 1.5; // Boost input volume by 50%
+      
+      // Create a compressor node to maintain consistent volume
+      const compressor = audioContext.createDynamicsCompressor();
+      compressor.threshold.value = -30; // Start compressing at -30dB (more sensitive)
+      compressor.knee.value = 15; // Smoother compression curve
+      compressor.ratio.value = 8; // Less aggressive compression
+      compressor.attack.value = 0.003; // Fast attack
+      compressor.release.value = 0.25; // Moderate release
+      
+      // Create a limiter to prevent clipping
+      const limiter = audioContext.createDynamicsCompressor();
+      limiter.threshold.value = -3; // Limit peaks at -3dB
+      limiter.knee.value = 0; // Hard limiting
+      limiter.ratio.value = 20; // Very aggressive ratio for limiting
+      limiter.attack.value = 0.001; // Very fast attack
+      limiter.release.value = 0.1; // Quick release
+      
+      // Create a final gain node for output volume control
+      const outputGain = audioContext.createGain();
+      outputGain.gain.value = 1.2; // Boost output slightly
+      
+      // Connect the audio processing chain
+      source.connect(preGain);
+      preGain.connect(compressor);
+      compressor.connect(limiter);
+      limiter.connect(outputGain);
+      
+      // Create a MediaStream from the processed audio
+      const destination = audioContext.createMediaStreamDestination();
+      outputGain.connect(destination);
+      
+      mediaRecorder.current = new MediaRecorder(destination.stream, {
         mimeType: 'audio/webm;codecs=opus',
         audioBitsPerSecond: 128000 // 128kbps for good quality
       });
@@ -1299,7 +1339,7 @@ const ScriptRecorder = () => {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={requestMicrophonePermission}
+                    onClick={checkMicrophonePermission}
                     className="gap-2 w-full sm:w-auto"
                   >
                     <AlertCircleIcon className="h-4 w-4" />
