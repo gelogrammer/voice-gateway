@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
 import { getRecordings, deleteRecording } from '../utils/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,6 +36,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('record');
+  
+  // Add ref for subscription
+  const recordingsSubscription = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchRecordings = async () => {
     if (!user) return;
@@ -42,13 +46,15 @@ const Dashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getRecordings(user.id);
+      const { data, error: fetchError } = await supabase
+        .from('user_recordings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       
-      if (!data) {
-        throw new Error('No data received from server');
-      }
+      if (fetchError) throw fetchError;
+      if (!data) throw new Error('No data received from server');
 
-      // Map the response to ensure it matches the Recording type
       const formattedRecordings: Recording[] = data.map((recording: any) => ({
         ...recording,
         user_id: recording.user_id || user.id,
@@ -56,7 +62,6 @@ const Dashboard = () => {
       }));
       setRecordings(formattedRecordings);
       
-      // Update progress after fetching recordings
       await updateProgress();
     } catch (error) {
       console.error('Error fetching recordings:', error);
@@ -67,11 +72,49 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    if (!authLoading && user) {
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'recordings') {
       fetchRecordings();
     }
-  }, [user, authLoading]);
+  };
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to user_recordings changes
+    recordingsSubscription.current = supabase.channel('recordings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_recordings',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          // Always fetch fresh data on any change
+          if (activeTab === 'recordings') {
+            await fetchRecordings();
+          }
+        }
+      )
+      .subscribe();
+
+    // Initial fetch if on recordings tab
+    if (activeTab === 'recordings') {
+      fetchRecordings();
+    }
+
+    // Cleanup subscription
+    return () => {
+      if (recordingsSubscription.current) {
+        supabase.removeChannel(recordingsSubscription.current);
+      }
+    };
+  }, [user, activeTab]);
 
   // Show loading spinner while auth is being checked
   if (authLoading) {
@@ -209,7 +252,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main Tabs Section */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <div className="flex justify-center mb-6">
             <TabsList className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full bg-white p-1 shadow-[0_2px_10px] shadow-black/5">
               <TabsTrigger 
