@@ -22,11 +22,14 @@ export default defineConfig(({ mode }) => ({
       include: [/node_modules/],
       extensions: ['.js', '.cjs'],
     },
+    chunkSizeWarningLimit: 1000,
+    sourcemap: false,
   },
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext',
     },
+    disabled: true
   },
   plugins: [
     react(),
