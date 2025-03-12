@@ -958,38 +958,40 @@ const ScriptRecorder = () => {
                         <button
                           onClick={() => handleCategoryChange(category.id)}
                           className={cn(
-                            "w-full p-4 rounded-lg transition-all",
-                            "hover:shadow-md",
-                            "border border-border/50",
-                            "space-y-2",
+                            "w-full p-4 rounded-lg transition-all hover:shadow-md border space-y-2",
                             currentCategory === category.id && "ring-2 ring-primary ring-offset-2",
-                            category.color
+                            progress === 100 
+                              ? "bg-green-50/80 border-green-200 hover:bg-green-100" 
+                              : cn("border-border/50", category.color)
                           )}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center",
-                                "bg-white shadow-sm",
-                                `text-${category.color.split('-')[0]}-600`
+                                "w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm",
+                                progress === 100 
+                                  ? "text-green-600"
+                                  : `text-${category.color.split('-')[0]}-600`
                               )}>
                                 <span className="text-xl">{category.icon}</span>
                               </div>
                               <div className="flex flex-col items-start">
-                                <span className="font-medium text-sm text-gray-900">
+                                <span className={cn(
+                                  "font-medium text-sm",
+                                  progress === 100 ? "text-green-700" : "text-gray-900"
+                                )}>
                                   {category.label}
                                 </span>
-                                <span className="text-sm text-muted-foreground">
+                                <span className={cn(
+                                  "text-sm",
+                                  progress === 100 ? "text-green-600" : "text-muted-foreground"
+                                )}>
                                   {completedCount}/{categoryScripts.length}
                                 </span>
                               </div>
                             </div>
                             {progress === 100 && (
-                              <div className={cn(
-                                "w-6 h-6 rounded-full flex items-center justify-center",
-                                "bg-white shadow-sm",
-                                `text-${category.color.split('-')[0]}-600`
-                              )}>
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white shadow-sm text-green-600">
                                 <CheckCircleIcon className="h-4 w-4" />
                               </div>
                             )}
@@ -998,7 +1000,9 @@ const ScriptRecorder = () => {
                             value={progress} 
                             className={cn(
                               "h-1.5 rounded-full",
-                              `bg-${category.color.split('-')[0]}-200 [&>div]:bg-${category.color.split('-')[0]}-600`
+                              progress === 100
+                                ? "bg-green-100 [&>div]:bg-green-500"
+                                : `bg-${category.color.split('-')[0]}-200 [&>div]:bg-${category.color.split('-')[0]}-600`
                             )} 
                           />
                         </button>
