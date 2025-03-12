@@ -2,15 +2,67 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>talk.twah</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>talk.twah - Real-Time Speech Analysis Platform</title>
+    
+    <!-- Primary Meta Tags -->
+    <meta name="description" content="Enhance your public speaking with real-time speech rate analysis and emotion feedback powered by AI. Get instant insights to improve your communication skills." />
+    <meta name="keywords" content="speech analysis, emotion detection, public speaking, AI feedback, communication skills" />
+    <meta name="author" content="talk.twah Development Team" />
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https: 'unsafe-inline' 'unsafe-eval'; style-src 'self' https: 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:;" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="talk.twah" />
+    <meta property="og:title" content="talk.twah - Real-Time Speech Analysis Platform" />
+    <meta property="og:description" content="Enhance your public speaking with real-time speech rate analysis and emotion feedback powered by AI. Get instant insights to improve your communication skills." />
     <meta property="og:image" content="/og-image.png" />
+    <meta property="og:url" content="https://talk.twah" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@talktwah" />
+    <meta name="twitter:title" content="talk.twah - Real-Time Speech Analysis Platform" />
+    <meta name="twitter:description" content="Enhance your public speaking with real-time speech rate analysis and emotion feedback powered by AI. Get instant insights to improve your communication skills." />
+    <meta name="twitter:image" content="/og-image.png" />
+    
+    <!-- PWA Support -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="talk.twah" />
+    <meta name="apple-mobile-web-app-title" content="talk.twah" />
+    <meta name="theme-color" content="#0EA5E9" />
+    <meta name="msapplication-navbutton-color" content="#0EA5E9" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="msapplication-starturl" content="/" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#0EA5E9" />
+    
+    <!-- Preconnect to Important Origins -->
+    <link rel="preconnect" href="https://cdn.gpteng.co" crossorigin />
+    
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
   </head>
 
   <body>
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: system-ui, -apple-system, sans-serif;">
+        JavaScript is required to use talk.twah. Please enable JavaScript in your browser settings.
+      </div>
+    </noscript>
+    
     <div id="root"></div>
+    
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
