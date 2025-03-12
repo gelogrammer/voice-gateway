@@ -1,5 +1,15 @@
+name = "voice-gateway"
+main = "workers-site/index.js"
+compatibility_date = "2025-03-12"
+workers_dev = true
+
+[site]
+bucket = "./dist"
+
 [build]
-command = "npm install --legacy-peer-deps && npm run build"
-output_dir = "dist"
+command = "npm run build"
+[build.upload]
+format = "service-worker"
+
 [build.environment]
 NODE_VERSION = "20" 
