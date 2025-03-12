@@ -914,29 +914,87 @@ const ScriptRecorder = () => {
         </CardHeader>
       </Card>
 
-      {/* Instructions Card - Collapsible on mobile */}
-      <Card className="mb-4 sm:mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
-        <CardHeader className="cursor-pointer" onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}>
+      {/* Instructions Card - Mobile View */}
+      <div className="block md:hidden mb-4">
+        <Card className="bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
+          <CardHeader className="cursor-pointer p-3" onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <HelpCircle className="h-5 w-5 text-primary" />
+                How to Use talk.twah
+              </CardTitle>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isInstructionsOpen ? "transform rotate-180" : "")} />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className={cn(!isInstructionsOpen && "hidden", "px-3 pb-3")}>
+            <Accordion type="single" collapsible className="w-full">
+              {/* Mobile Accordion Items */}
+              <AccordionItem value="recording" className="border-none">
+                <AccordionTrigger className="hover:no-underline py-2 px-3 rounded-lg hover:bg-primary/5 data-[state=open]:bg-primary/5 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MicIcon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium text-sm">Recording Instructions</div>
+                      <div className="text-xs text-muted-foreground">Learn how to record</div>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-3">
+                  {/* Mobile Recording Steps */}
+                  <div className="space-y-2 mt-2">
+                    {[
+                      { step: 1, text: "Select a category", icon: "📂" },
+                      { step: 2, text: "Choose a script to record", icon: "📝" },
+                      { step: 3, text: "Find a quiet space", icon: "🔇" },
+                      { step: 4, text: "Wait for countdown", icon: "⏱️" },
+                      { step: 5, text: "Read clearly", icon: "🗣️" },
+                      { step: 6, text: "Auto-stop after time limit", icon: "⏹️" },
+                      { step: 7, text: "Save recording", icon: "✅" }
+                    ].map(({ step, text, icon }) => (
+                      <div key={step} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-base">{icon}</span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-medium">Step {step}</div>
+                          <div className="text-xs text-muted-foreground">{text}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Instructions Card - Desktop View */}
+      <Card className="hidden md:block mb-4 sm:mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
+        <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-xl font-bold">
               <HelpCircle className="h-6 w-6 text-primary" />
               How to Use talk.twah
             </CardTitle>
-            <Button variant="ghost" size="icon" className="sm:hidden">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isInstructionsOpen ? "transform rotate-180" : "")} />
-            </Button>
           </div>
           <CardDescription className="text-muted-foreground">
             Follow these steps to get started with voice recording
           </CardDescription>
         </CardHeader>
-        <CardContent className={cn("sm:block", !isInstructionsOpen && "hidden")}>
+        <CardContent>
           <Accordion type="single" collapsible className="w-full">
+            {/* Desktop Accordion Items - Keep existing desktop content */}
             <AccordionItem value="recording" className="border-none">
+              {/* Keep existing desktop AccordionTrigger and AccordionContent */}
               <AccordionTrigger className="hover:no-underline py-4 px-4 rounded-lg hover:bg-primary/5 data-[state=open]:bg-primary/5 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <MicIcon className="h-5 w-5 text-primary" />
+                    <MicIcon className="h-4 w-4 text-primary" />
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-base">Recording Instructions</div>
@@ -1075,6 +1133,10 @@ const ScriptRecorder = () => {
 
       {/* Mobile Category Selector */}
       <div className="block md:hidden mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <MicIcon className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">Categories</span>
+        </div>
         <select
           value={currentCategory}
           onChange={(e) => handleCategoryChange(e.target.value)}
