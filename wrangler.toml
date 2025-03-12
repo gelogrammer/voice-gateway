@@ -1,3 +1,10 @@
+name = "voice-gateway"
+main = "dist/index.html"
+compatibility_date = "2024-03-12"
+
+[site]
+bucket = "./dist"
+
 [build]
 command = "NODE_ENV=production npm install --legacy-peer-deps --include=dev --platform=linux --arch=x64 && npx vite build"
 output_dir = "dist"
