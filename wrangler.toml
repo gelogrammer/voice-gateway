@@ -1,4 +1,5 @@
 [build]
 command = "npm install --legacy-peer-deps && npm run build"
+output_dir = "dist"
 [build.environment]
 NODE_VERSION = "20" 
