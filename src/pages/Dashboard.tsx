@@ -126,31 +126,49 @@ const Dashboard = () => {
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                    Voice Recording Dashboard
+          <Card className="md:col-span-2 overflow-hidden">
+            <CardHeader className="relative pb-8">
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <CardTitle className="text-4xl font-bold tracking-tight">
+                    <span className="bg-gradient-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent">
+                      talk.twah
+                    </span>
                   </CardTitle>
-                  <CardDescription className="mt-2 text-lg">
-                    Record and analyze your voice samples for speech pattern analysis
-                  </CardDescription>
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                    <span className="text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full">
+                      Research Lab
+                    </span>
+                  </div>
                 </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button onClick={fetchRecordings} variant="outline" size="sm">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Refresh your recordings list</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+
+                <div className="space-y-6">
+                  <div className="max-w-2xl">
+                    <p className="text-xl leading-relaxed text-foreground/90">
+                      Help advance our research in 
+                      <span className="font-medium text-blue-700 dark:text-blue-400"> real-time speech analysis </span> 
+                      using deep reinforcement learning.
+                    </p>
+                    <p className="text-xl leading-relaxed text-foreground/90 mt-2">
+                      Your voice samples contribute to developing 
+                      <span className="font-medium text-blue-700 dark:text-blue-400"> intelligent feedback systems </span> 
+                      for speech rate and emotion detection.
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-blue-600 to-blue-900 rounded-full"></div>
+                    <div className="pl-6">
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Each recording helps train our AI to better understand human speech patterns, 
+                        enabling more accurate real-time feedback for speech therapy and communication training.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl -z-0"></div>
             </CardHeader>
           </Card>
 
@@ -226,10 +244,7 @@ const Dashboard = () => {
           <TabsContent value="record" className="focus-visible:outline-none">
             <Card className="border-2 border-primary/20">
               <CardHeader>
-                <div>
-                  <CardTitle className="text-xl">New Recording</CardTitle>
-                  <CardDescription>Select a script and start recording your voice</CardDescription>
-                </div>
+              
               </CardHeader>
               <CardContent>
                 <ScriptRecorder />

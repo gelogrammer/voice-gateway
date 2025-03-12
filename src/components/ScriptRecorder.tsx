@@ -488,27 +488,65 @@ const ScriptRecorder = () => {
     <div className="container mx-auto p-4 max-w-5xl">
       <Card className="mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
         <CardHeader className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Voice Recording Session
-              </CardTitle>
-              <CardDescription className="text-lg mt-2">
-                Record yourself reading each script to help improve voice recognition systems.
-              </CardDescription>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
+                    Research Lab
+                  </Badge>
+                  <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
+                    Voice Analysis
+                  </Badge>
+                </div>
+                <CardTitle className="text-3xl font-bold text-foreground">
+                  Voice Recording Session
+                </CardTitle>
+              </div>
+              <div className="max-w-2xl space-y-4">
+                <CardDescription className="text-lg leading-relaxed text-foreground/90">
+                  Contribute to our research on Real-Time Speech Rate and Emotion Analysis. Your recordings help train our deep learning models to provide instant feedback on speech patterns and emotional expression.
+                </CardDescription>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2 text-sm text-foreground/80">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <BarChart2Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-medium">Real-time Analysis</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-foreground/80">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <TimerIcon className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-medium">Instant Feedback</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-foreground/80">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MicIcon className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-medium">Speech Pattern Recognition</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="rounded-full">
-                    <InfoIcon className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-sm">
-                  <p>Complete all scripts in each category before moving to the next. Each recording has a {RECORDING_TIME_LIMIT}-second time limit.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex flex-col items-end gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="rounded-full w-10 h-10">
+                      <InfoIcon className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-sm">
+                    <p className="text-foreground/90">Complete all scripts in each category before moving to the next. Each recording has a {RECORDING_TIME_LIMIT}-second time limit.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="text-sm text-foreground/80 text-right font-medium">
+                <p>Session Time: {RECORDING_TIME_LIMIT}s</p>
+                <p>Categories: {categories.length}</p>
+              </div>
+            </div>
           </div>
         </CardHeader>
       </Card>
