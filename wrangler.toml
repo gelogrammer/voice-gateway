@@ -1,5 +1,5 @@
 [build]
-command = "NODE_ENV=production npm install --legacy-peer-deps --platform=linux --arch=x64 && npx vite build"
+command = "NODE_ENV=production npm install --legacy-peer-deps --include=dev --platform=linux --arch=x64 && npx vite build"
 output_dir = "dist"
 [build.environment]
 NODE_VERSION = "18.18.0" 
