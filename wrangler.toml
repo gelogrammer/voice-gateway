@@ -1,5 +1,5 @@
 [build]
-command = "npm install --legacy-peer-deps && npm run build"
+command = "NODE_ENV=production npm install --legacy-peer-deps --platform=linux --arch=x64 && npm run build"
 output_dir = "dist"
 [build.environment]
 NODE_VERSION = "18.18.0" 
