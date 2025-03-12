@@ -29,6 +29,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const RECORDING_TIME_LIMIT = 7; // 7 seconds
 const COUNTDOWN_TIME = 3; // 3 seconds countdown before recording
@@ -62,6 +73,130 @@ const getCategoryDescription = (categoryId: string): string => {
   }
 };
 
+interface ResetDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  isLoading?: boolean;
+}
+
+const ResetDialog: React.FC<ResetDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  title,
+  description,
+  isLoading = false
+}) => {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-[400px]">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertCircleIcon className="h-5 w-5" />
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-base">
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-destructive hover:bg-destructive/90"
+          >
+            {isLoading ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Resetting...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reset
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
+interface DeleteDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  itemType: string;
+  count?: number;
+  isLoading?: boolean;
+}
+
+const DeleteDialog: React.FC<DeleteDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  title,
+  description,
+  itemType,
+  count,
+  isLoading = false
+}) => {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-[400px]">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertCircleIcon className="h-5 w-5" />
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2.5">
+            <p className="text-base">{description}</p>
+            {count !== undefined && count > 0 && (
+              <div className="flex items-center gap-2 text-sm bg-destructive/10 text-destructive rounded-md p-2">
+                <AlertCircleIcon className="h-4 w-4" />
+                <span>This will delete {count} {itemType}{count === 1 ? '' : 's'}</span>
+              </div>
+            )}
+            {count === 0 && (
+              <div className="flex items-center gap-2 text-sm bg-muted rounded-md p-2">
+                <InfoIcon className="h-4 w-4" />
+                <span>No {itemType}s found to delete</span>
+              </div>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading || count === 0}
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+          >
+            {isLoading ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <AlertCircleIcon className="mr-2 h-4 w-4" />
+                Delete {count === 1 ? '1 recording' : 'recordings'}
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
 const ScriptRecorder = () => {
   const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
@@ -77,6 +212,23 @@ const ScriptRecorder = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [resetDialogState, setResetDialogState] = useState<{
+    isOpen: boolean;
+    type: 'all' | 'category';
+    categoryId?: string;
+  }>({
+    isOpen: false,
+    type: 'all'
+  });
+  const [deleteDialogState, setDeleteDialogState] = useState<{
+    isOpen: boolean;
+    type: 'all' | 'category';
+    categoryId?: string;
+    recordingCount?: number;
+  }>({
+    isOpen: false,
+    type: 'all'
+  });
   
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
@@ -568,9 +720,9 @@ const ScriptRecorder = () => {
     { id: 'SLOW_TEMPO', label: 'Slow Tempo', icon: '🐢', color: 'from-teal-500/20 to-teal-500/10' }
   ];
   
-  // Update resetAllProgress to handle real-time updates
+  // Update resetAllProgress function
   const resetAllProgress = async () => {
-    if (!user || !window.confirm('Are you sure you want to reset all progress? This action cannot be undone.')) return;
+    if (!user) return;
     
     try {
       setIsResetting(true);
@@ -596,66 +748,13 @@ const ScriptRecorder = () => {
       toast.error('Failed to reset progress');
     } finally {
       setIsResetting(false);
+      setResetDialogState(prev => ({ ...prev, isOpen: false }));
     }
   };
 
-  // Update deleteAllRecordings to handle real-time updates
-  const deleteAllRecordings = async () => {
-    if (!user || !window.confirm('Are you sure you want to delete all recordings? This action cannot be undone.')) return;
-    
-    try {
-      setIsResetting(true);
-      
-      // Get all recordings for the user
-      const { data: recordings, error: fetchError } = await supabase
-        .from('user_recordings')
-        .select('id, file_url')
-        .eq('user_id', user.id);
-      
-      if (fetchError) throw fetchError;
-      
-      if (recordings && recordings.length > 0) {
-        // Delete files from storage first
-        const filePaths = recordings.map(rec => {
-          // Get the full path including the folder name
-          const parts = rec.file_url.split('/');
-          return parts[parts.length - 2] + '/' + parts[parts.length - 1];
-        }).filter(Boolean);
-
-        if (filePaths.length > 0) {
-          console.log('Deleting files:', filePaths); // Debug log
-          const { error: storageError } = await supabase.storage
-            .from('recordings')
-            .remove(filePaths);
-          
-          if (storageError) {
-            console.error('Error deleting files from storage:', storageError);
-          }
-        }
-        
-        // Then delete records from the database
-        const { error: deleteError } = await supabase
-          .from('user_recordings')
-          .delete()
-          .eq('user_id', user.id);
-        
-        if (deleteError) throw deleteError;
-        
-        toast.success('All recordings deleted successfully');
-      } else {
-        toast.info('No recordings to delete');
-      }
-    } catch (error) {
-      console.error('Error deleting recordings:', error);
-      toast.error('Failed to delete recordings');
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  // Add new function to reset category progress
+  // Update resetCategoryProgress function
   const resetCategoryProgress = async (categoryId: string) => {
-    if (!user || !window.confirm(`Are you sure you want to reset progress for ${categoryId}? This action cannot be undone.`)) return;
+    if (!user) return;
     
     try {
       setIsResetting(true);
@@ -694,12 +793,66 @@ const ScriptRecorder = () => {
       toast.error('Failed to reset category progress');
     } finally {
       setIsResetting(false);
+      setResetDialogState(prev => ({ ...prev, isOpen: false }));
     }
   };
 
-  // Add new function to delete category recordings
+  // Update deleteAllRecordings function
+  const deleteAllRecordings = async () => {
+    if (!user) return;
+    
+    try {
+      setIsResetting(true);
+      
+      // Get all recordings for the user
+      const { data: recordings, error: fetchError } = await supabase
+        .from('user_recordings')
+        .select('id, file_url')
+        .eq('user_id', user.id);
+      
+      if (fetchError) throw fetchError;
+      
+      if (recordings && recordings.length > 0) {
+        // Delete files from storage first
+        const filePaths = recordings.map(rec => {
+          const parts = rec.file_url.split('/');
+          return parts[parts.length - 2] + '/' + parts[parts.length - 1];
+        }).filter(Boolean);
+
+        if (filePaths.length > 0) {
+          const { error: storageError } = await supabase.storage
+            .from('recordings')
+            .remove(filePaths);
+          
+          if (storageError) {
+            console.error('Error deleting files from storage:', storageError);
+          }
+        }
+        
+        // Then delete records from the database
+        const { error: deleteError } = await supabase
+          .from('user_recordings')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (deleteError) throw deleteError;
+        
+        toast.success('All recordings deleted successfully');
+      } else {
+        toast.info('No recordings to delete');
+      }
+    } catch (error) {
+      console.error('Error deleting recordings:', error);
+      toast.error('Failed to delete recordings');
+    } finally {
+      setIsResetting(false);
+      setDeleteDialogState(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Update deleteCategoryRecordings function
   const deleteCategoryRecordings = async (categoryId: string) => {
-    if (!user || !window.confirm(`Are you sure you want to delete all recordings for ${categoryId}? This action cannot be undone.`)) return;
+    if (!user) return;
     
     try {
       setIsResetting(true);
@@ -716,13 +869,11 @@ const ScriptRecorder = () => {
       if (recordings && recordings.length > 0) {
         // Delete files from storage first
         const filePaths = recordings.map(rec => {
-          // Get the full path including the folder name
           const parts = rec.file_url.split('/');
           return parts[parts.length - 2] + '/' + parts[parts.length - 1];
         }).filter(Boolean);
 
         if (filePaths.length > 0) {
-          console.log('Deleting files:', filePaths); // Debug log
           const { error: storageError } = await supabase.storage
             .from('recordings')
             .remove(filePaths);
@@ -750,7 +901,44 @@ const ScriptRecorder = () => {
       toast.error('Failed to delete category recordings');
     } finally {
       setIsResetting(false);
+      setDeleteDialogState(prev => ({ ...prev, isOpen: false }));
     }
+  };
+
+  // Add function to check recording count
+  const checkRecordingCount = async (categoryId?: string) => {
+    if (!user) return 0;
+    
+    try {
+      const query = supabase
+        .from('user_recordings')
+        .select('id', { count: 'exact' })
+        .eq('user_id', user.id);
+        
+      if (categoryId) {
+        query.eq('category', categoryId);
+      }
+      
+      const { count, error } = await query;
+      
+      if (error) throw error;
+      
+      return count || 0;
+    } catch (error) {
+      console.error('Error checking recording count:', error);
+      return 0;
+    }
+  };
+
+  // Add function to handle delete dialog open
+  const handleDeleteDialogOpen = async (type: 'all' | 'category', categoryId?: string) => {
+    const count = await checkRecordingCount(categoryId);
+    setDeleteDialogState({
+      isOpen: true,
+      type,
+      categoryId,
+      recordingCount: count
+    });
   };
 
   return (
@@ -1269,39 +1457,28 @@ const ScriptRecorder = () => {
                           />
                         </button>
 
-                        {/* Category management buttons */}
-                        <div className="grid grid-cols-2 gap-2 px-4">
+                        {/* Category management buttons - Replace two buttons with one */}
+                        <div className="px-4">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
-                              resetCategoryProgress(category.id);
+                              setResetDialogState({
+                                isOpen: true,
+                                type: 'category',
+                                categoryId: category.id
+                              });
                             }}
                             disabled={isResetting || completedCount === 0}
                             className="w-full text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
                           >
                             {isResetting ? (
-                              <Loader2Icon className="h-3 w-3 animate-spin" />
+                              <Loader2Icon className="h-3 w-3 animate-spin mr-1" />
                             ) : (
-                              'Reset Progress'
+                              <RefreshCw className="h-3 w-3 mr-1" />
                             )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              deleteCategoryRecordings(category.id);
-                            }}
-                            disabled={isResetting}
-                            className="w-full text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
-                          >
-                            {isResetting ? (
-                              <Loader2Icon className="h-3 w-3 animate-spin" />
-                            ) : (
-                              'Delete Recordings'
-                            )}
+                            Reset
                           </Button>
                         </div>
                       </div>
@@ -1487,6 +1664,55 @@ const ScriptRecorder = () => {
           </CardContent>
         </Card>
       </div>
+
+      <ResetDialog
+        isOpen={resetDialogState.isOpen}
+        onOpenChange={(open) => setResetDialogState(prev => ({ ...prev, isOpen: open }))}
+        onConfirm={() => {
+          if (resetDialogState.type === 'all') {
+            resetAllProgress();
+          } else if (resetDialogState.type === 'category' && resetDialogState.categoryId) {
+            resetCategoryProgress(resetDialogState.categoryId);
+            deleteCategoryRecordings(resetDialogState.categoryId);
+          }
+        }}
+        title={
+          resetDialogState.type === 'all'
+            ? "Reset All Progress"
+            : "Reset Category"
+        }
+        description={
+          resetDialogState.type === 'all'
+            ? "This will delete all recordings and reset all progress across all categories. This action cannot be undone."
+            : "This will delete all recordings and reset progress for this category. This action cannot be undone."
+        }
+        isLoading={isResetting}
+      />
+
+      <DeleteDialog
+        isOpen={deleteDialogState.isOpen}
+        onOpenChange={(open) => setDeleteDialogState(prev => ({ ...prev, isOpen: open }))}
+        onConfirm={() => {
+          if (deleteDialogState.type === 'all') {
+            deleteAllRecordings();
+          } else if (deleteDialogState.type === 'category' && deleteDialogState.categoryId) {
+            deleteCategoryRecordings(deleteDialogState.categoryId);
+          }
+        }}
+        title={
+          deleteDialogState.type === 'all'
+            ? "Delete All Recordings"
+            : `Delete ${deleteDialogState.categoryId?.split('_').join(' ')} Recordings`
+        }
+        description={
+          deleteDialogState.type === 'all'
+            ? "This will permanently delete all your recordings across all categories. This action cannot be undone."
+            : `This will permanently delete all your recordings in the ${deleteDialogState.categoryId?.split('_').join(' ')} category. This action cannot be undone.`
+        }
+        itemType="recording"
+        count={deleteDialogState.recordingCount}
+        isLoading={isResetting}
+      />
     </div>
   );
 };
