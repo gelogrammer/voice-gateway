@@ -75,6 +75,7 @@ const ScriptRecorder = () => {
   const [currentCategory, setCurrentCategory] = useState('HIGH_FLUENCY');
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
@@ -83,6 +84,10 @@ const ScriptRecorder = () => {
   const startTimeRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
+  // Add refs for Supabase subscriptions
+  const progressSubscription = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const recordingsSubscription = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
     if (audioRef.current && audioUrl) {
       audioRef.current.src = audioUrl;
@@ -128,7 +133,70 @@ const ScriptRecorder = () => {
     }
   }, [user]);
 
-  // Sync with Supabase
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to user_progress changes
+    progressSubscription.current = supabase.channel('user_progress_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_progress',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const { completed_scripts, current_category } = payload.new;
+            setCompletedScripts(new Set(completed_scripts));
+            setCurrentCategory(current_category);
+            
+            // Update localStorage
+            const progress = {
+              completedScripts: completed_scripts,
+              currentCategory: current_category,
+              lastUpdated: new Date().toISOString()
+            };
+            localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to user_recordings changes
+    recordingsSubscription.current = supabase.channel('user_recordings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_recordings',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // Handle recording changes if needed
+          if (payload.eventType === 'DELETE') {
+            // You might want to update UI or state here
+            toast.success('Recording deleted successfully');
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      if (progressSubscription.current) {
+        supabase.removeChannel(progressSubscription.current);
+      }
+      if (recordingsSubscription.current) {
+        supabase.removeChannel(recordingsSubscription.current);
+      }
+    };
+  }, [user]);
+
+  // Update syncWithSupabase to handle real-time updates
   const syncWithSupabase = async () => {
     if (!user) return;
 
@@ -136,7 +204,7 @@ const ScriptRecorder = () => {
       setIsSyncing(true);
       const { data, error } = await getUserProgress(user.id);
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
 
@@ -150,7 +218,7 @@ const ScriptRecorder = () => {
           setCurrentCategory(data.current_category);
           
           // Update localStorage
-          const progress: UserProgress = {
+          const progress = {
             completedScripts: data.completed_scripts,
             currentCategory: data.current_category,
             lastUpdated: data.last_updated
@@ -164,45 +232,6 @@ const ScriptRecorder = () => {
       setIsSyncing(false);
     }
   };
-
-  // Update Supabase whenever progress changes
-  useEffect(() => {
-    if (user && !isSyncing) {
-      const saveProgress = async () => {
-        try {
-          setIsSyncing(true);
-          
-          // Save to localStorage
-          const progress: UserProgress = {
-            completedScripts: Array.from(completedScripts),
-            currentCategory,
-            lastUpdated: new Date().toISOString()
-          };
-          localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
-
-          // Save to Supabase using the helper function
-          const { error } = await updateUserProgress(user.id, {
-            completed_scripts: Array.from(completedScripts),
-            current_category: currentCategory
-          });
-
-          if (error) throw error;
-        } catch (error) {
-          console.error('Error saving progress:', error);
-          // Show error toast only for non-network errors
-          if (error instanceof Error && !error.message.includes('network')) {
-            toast.error('Failed to save progress');
-          }
-        } finally {
-          setIsSyncing(false);
-        }
-      };
-
-      // Debounce the save operation
-      const timeoutId = setTimeout(saveProgress, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [completedScripts, currentCategory, user]);
 
   const checkMicrophonePermission = async () => {
     try {
@@ -439,6 +468,20 @@ const ScriptRecorder = () => {
       newCompletedScripts.add(currentScript.id);
       setCompletedScripts(newCompletedScripts);
       
+      // Sync progress with Supabase
+      await updateUserProgress(user.id, {
+        completed_scripts: Array.from(newCompletedScripts),
+        current_category: currentCategory
+      });
+      
+      // Update localStorage
+      const progress = {
+        completedScripts: Array.from(newCompletedScripts),
+        currentCategory: currentCategory,
+        lastUpdated: new Date().toISOString()
+      };
+      localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+      
       toast.success('Recording saved successfully!', {
         id: uploadToast
       });
@@ -484,6 +527,191 @@ const ScriptRecorder = () => {
     { id: 'SLOW_TEMPO', label: 'Slow Tempo', icon: '🐢', color: 'from-teal-500/20 to-teal-500/10' }
   ];
   
+  // Update resetAllProgress to handle real-time updates
+  const resetAllProgress = async () => {
+    if (!user || !window.confirm('Are you sure you want to reset all progress? This action cannot be undone.')) return;
+    
+    try {
+      setIsResetting(true);
+      
+      // Reset progress in Supabase first
+      const { error } = await updateUserProgress(user.id, {
+        completed_scripts: [],
+        current_category: 'HIGH_FLUENCY'
+      });
+      
+      if (error) throw error;
+      
+      // Clear local state
+      setCompletedScripts(new Set());
+      setCurrentCategory('HIGH_FLUENCY');
+      
+      // Clear localStorage
+      localStorage.removeItem(`userProgress_${user.id}`);
+      
+      toast.success('Progress reset successfully');
+    } catch (error) {
+      console.error('Error resetting progress:', error);
+      toast.error('Failed to reset progress');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Update deleteAllRecordings to handle real-time updates
+  const deleteAllRecordings = async () => {
+    if (!user || !window.confirm('Are you sure you want to delete all recordings? This action cannot be undone.')) return;
+    
+    try {
+      setIsResetting(true);
+      
+      // Get all recordings for the user
+      const { data: recordings, error: fetchError } = await supabase
+        .from('user_recordings')
+        .select('id, file_url')
+        .eq('user_id', user.id);
+      
+      if (fetchError) throw fetchError;
+      
+      if (recordings && recordings.length > 0) {
+        // Delete files from storage first
+        const filePaths = recordings.map(rec => {
+          // Get the full path including the folder name
+          const parts = rec.file_url.split('/');
+          return parts[parts.length - 2] + '/' + parts[parts.length - 1];
+        }).filter(Boolean);
+
+        if (filePaths.length > 0) {
+          console.log('Deleting files:', filePaths); // Debug log
+          const { error: storageError } = await supabase.storage
+            .from('recordings')
+            .remove(filePaths);
+          
+          if (storageError) {
+            console.error('Error deleting files from storage:', storageError);
+          }
+        }
+        
+        // Then delete records from the database
+        const { error: deleteError } = await supabase
+          .from('user_recordings')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (deleteError) throw deleteError;
+        
+        toast.success('All recordings deleted successfully');
+      } else {
+        toast.info('No recordings to delete');
+      }
+    } catch (error) {
+      console.error('Error deleting recordings:', error);
+      toast.error('Failed to delete recordings');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Add new function to reset category progress
+  const resetCategoryProgress = async (categoryId: string) => {
+    if (!user || !window.confirm(`Are you sure you want to reset progress for ${categoryId}? This action cannot be undone.`)) return;
+    
+    try {
+      setIsResetting(true);
+      
+      // Get current completed scripts
+      const currentCompleted = Array.from(completedScripts);
+      
+      // Filter out scripts from this category
+      const filteredScripts = currentCompleted.filter(scriptId => {
+        const script = scripts.find(s => s.id === scriptId);
+        return script?.category !== categoryId;
+      });
+      
+      // Update progress in Supabase
+      const { error } = await updateUserProgress(user.id, {
+        completed_scripts: filteredScripts,
+        current_category: currentCategory
+      });
+      
+      if (error) throw error;
+      
+      // Update local state
+      setCompletedScripts(new Set(filteredScripts));
+      
+      // Update localStorage
+      const progress = {
+        completedScripts: filteredScripts,
+        currentCategory: currentCategory,
+        lastUpdated: new Date().toISOString()
+      };
+      localStorage.setItem(`userProgress_${user.id}`, JSON.stringify(progress));
+      
+      toast.success(`Progress reset for ${categoryId}`);
+    } catch (error) {
+      console.error('Error resetting category progress:', error);
+      toast.error('Failed to reset category progress');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Add new function to delete category recordings
+  const deleteCategoryRecordings = async (categoryId: string) => {
+    if (!user || !window.confirm(`Are you sure you want to delete all recordings for ${categoryId}? This action cannot be undone.`)) return;
+    
+    try {
+      setIsResetting(true);
+      
+      // Get all recordings for the user in this category
+      const { data: recordings, error: fetchError } = await supabase
+        .from('user_recordings')
+        .select('id, file_url')
+        .eq('user_id', user.id)
+        .eq('category', categoryId);
+      
+      if (fetchError) throw fetchError;
+      
+      if (recordings && recordings.length > 0) {
+        // Delete files from storage first
+        const filePaths = recordings.map(rec => {
+          // Get the full path including the folder name
+          const parts = rec.file_url.split('/');
+          return parts[parts.length - 2] + '/' + parts[parts.length - 1];
+        }).filter(Boolean);
+
+        if (filePaths.length > 0) {
+          console.log('Deleting files:', filePaths); // Debug log
+          const { error: storageError } = await supabase.storage
+            .from('recordings')
+            .remove(filePaths);
+          
+          if (storageError) {
+            console.error('Error deleting files from storage:', storageError);
+          }
+        }
+        
+        // Then delete records from the database
+        const { error: deleteError } = await supabase
+          .from('user_recordings')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('category', categoryId);
+        
+        if (deleteError) throw deleteError;
+        
+        toast.success(`Recordings deleted for ${categoryId}`);
+      } else {
+        toast.info(`No recordings to delete for ${categoryId}`);
+      }
+    } catch (error) {
+      console.error('Error deleting category recordings:', error);
+      toast.error('Failed to delete category recordings');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 max-w-5xl">
       <Card className="mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
@@ -726,81 +954,91 @@ const ScriptRecorder = () => {
                 return (
                   <HoverCard key={category.id}>
                     <HoverCardTrigger asChild>
-                      <button
-                        onClick={() => handleCategoryChange(category.id)}
-                        className={cn(
-                          "w-full p-4 rounded-lg transition-all",
-                          "hover:shadow-md",
-                          "border border-border/50",
-                          "space-y-2",
-                          currentCategory === category.id && "ring-2 ring-primary ring-offset-2",
-                          category.id === 'HIGH_FLUENCY' && "bg-[#e7f8ef]",
-                          category.id === 'MEDIUM_FLUENCY' && "bg-[#e7f1f8]",
-                          category.id === 'LOW_FLUENCY' && "bg-[#fdf7e7]",
-                          category.id === 'CLEAR_PRONUNCIATION' && "bg-[#f5e7f8]",
-                          category.id === 'UNCLEAR_PRONUNCIATION' && "bg-[#f8e7e7]",
-                          category.id === 'FAST_TEMPO' && "bg-[#ffe7e7]",
-                          category.id === 'MEDIUM_TEMPO' && "bg-[#e7eaf8]",
-                          category.id === 'SLOW_TEMPO' && "bg-[#e7f8f5]",
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-10 h-10 rounded-full flex items-center justify-center",
-                              "bg-white shadow-sm",
-                              category.id === 'HIGH_FLUENCY' && "text-green-600",
-                              category.id === 'MEDIUM_FLUENCY' && "text-blue-600",
-                              category.id === 'LOW_FLUENCY' && "text-yellow-600",
-                              category.id === 'CLEAR_PRONUNCIATION' && "text-purple-600",
-                              category.id === 'UNCLEAR_PRONUNCIATION' && "text-red-600",
-                              category.id === 'FAST_TEMPO' && "text-orange-600",
-                              category.id === 'MEDIUM_TEMPO' && "text-indigo-600",
-                              category.id === 'SLOW_TEMPO' && "text-teal-600",
-                            )}>
-                              <span className="text-xl">{category.icon}</span>
-                            </div>
-                            <div className="flex flex-col items-start">
-                              <span className="font-medium text-sm text-gray-900">
-                                {category.label}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                {completedCount}/{categoryScripts.length}
-                              </span>
-                            </div>
-                          </div>
-                          {progress === 100 && (
-                            <div className={cn(
-                              "w-6 h-6 rounded-full flex items-center justify-center",
-                              "bg-white shadow-sm",
-                              category.id === 'HIGH_FLUENCY' && "text-green-600",
-                              category.id === 'MEDIUM_FLUENCY' && "text-blue-600",
-                              category.id === 'LOW_FLUENCY' && "text-yellow-600",
-                              category.id === 'CLEAR_PRONUNCIATION' && "text-purple-600",
-                              category.id === 'UNCLEAR_PRONUNCIATION' && "text-red-600",
-                              category.id === 'FAST_TEMPO' && "text-orange-600",
-                              category.id === 'MEDIUM_TEMPO' && "text-indigo-600",
-                              category.id === 'SLOW_TEMPO' && "text-teal-600",
-                            )}>
-                              <CheckCircleIcon className="h-4 w-4" />
-                            </div>
-                          )}
-                        </div>
-                        <Progress 
-                          value={progress} 
+                      <div className="space-y-4">
+                        <button
+                          onClick={() => handleCategoryChange(category.id)}
                           className={cn(
-                            "h-1.5 rounded-full",
-                            category.id === 'HIGH_FLUENCY' && "bg-green-200 [&>div]:bg-green-600",
-                            category.id === 'MEDIUM_FLUENCY' && "bg-blue-200 [&>div]:bg-blue-600",
-                            category.id === 'LOW_FLUENCY' && "bg-yellow-200 [&>div]:bg-yellow-600",
-                            category.id === 'CLEAR_PRONUNCIATION' && "bg-purple-200 [&>div]:bg-purple-600",
-                            category.id === 'UNCLEAR_PRONUNCIATION' && "bg-red-200 [&>div]:bg-red-600",
-                            category.id === 'FAST_TEMPO' && "bg-orange-200 [&>div]:bg-orange-600",
-                            category.id === 'MEDIUM_TEMPO' && "bg-indigo-200 [&>div]:bg-indigo-600",
-                            category.id === 'SLOW_TEMPO' && "bg-teal-200 [&>div]:bg-teal-600",
-                          )} 
-                        />
-                      </button>
+                            "w-full p-4 rounded-lg transition-all",
+                            "hover:shadow-md",
+                            "border border-border/50",
+                            "space-y-2",
+                            currentCategory === category.id && "ring-2 ring-primary ring-offset-2",
+                            category.color
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center",
+                                "bg-white shadow-sm",
+                                `text-${category.color.split('-')[0]}-600`
+                              )}>
+                                <span className="text-xl">{category.icon}</span>
+                              </div>
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium text-sm text-gray-900">
+                                  {category.label}
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                  {completedCount}/{categoryScripts.length}
+                                </span>
+                              </div>
+                            </div>
+                            {progress === 100 && (
+                              <div className={cn(
+                                "w-6 h-6 rounded-full flex items-center justify-center",
+                                "bg-white shadow-sm",
+                                `text-${category.color.split('-')[0]}-600`
+                              )}>
+                                <CheckCircleIcon className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+                          <Progress 
+                            value={progress} 
+                            className={cn(
+                              "h-1.5 rounded-full",
+                              `bg-${category.color.split('-')[0]}-200 [&>div]:bg-${category.color.split('-')[0]}-600`
+                            )} 
+                          />
+                        </button>
+
+                        {/* Category management buttons */}
+                        <div className="grid grid-cols-2 gap-2 px-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              resetCategoryProgress(category.id);
+                            }}
+                            disabled={isResetting || completedCount === 0}
+                            className="w-full text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                          >
+                            {isResetting ? (
+                              <Loader2Icon className="h-3 w-3 animate-spin" />
+                            ) : (
+                              'Reset Progress'
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              deleteCategoryRecordings(category.id);
+                            }}
+                            disabled={isResetting}
+                            className="w-full text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                          >
+                            {isResetting ? (
+                              <Loader2Icon className="h-3 w-3 animate-spin" />
+                            ) : (
+                              'Delete Recordings'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </HoverCardTrigger>
                     <HoverCardContent side="right" align="start" className="w-80">
                       <div className="space-y-2">
