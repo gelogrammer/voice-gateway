@@ -122,15 +122,15 @@ const Dashboard = () => {
   }, {} as Record<string, Recording[]>);
 
   return (
-    <div className="container mx-auto py-6 bg-background min-h-screen">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 bg-background min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-8">
         {/* Header Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <Card className="md:col-span-2 overflow-hidden">
-            <CardHeader className="relative pb-8">
+            <CardHeader className="relative pb-6 sm:pb-8">
               <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <CardTitle className="text-4xl font-bold tracking-tight">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
+                  <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight">
                     <span className="bg-gradient-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent">
                       talk.twah
                     </span>
@@ -143,14 +143,14 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div className="max-w-2xl">
-                    <p className="text-xl leading-relaxed text-foreground/90">
+                    <p className="text-lg sm:text-xl leading-relaxed text-foreground/90">
                       Help advance our research in 
                       <span className="font-medium text-blue-700 dark:text-blue-400"> real-time speech analysis </span> 
                       using deep reinforcement learning.
                     </p>
-                    <p className="text-xl leading-relaxed text-foreground/90 mt-2">
+                    <p className="text-lg sm:text-xl leading-relaxed text-foreground/90 mt-2">
                       Your voice samples contribute to developing 
                       <span className="font-medium text-blue-700 dark:text-blue-400"> intelligent feedback systems </span> 
                       for speech rate and emotion detection.
@@ -159,7 +159,7 @@ const Dashboard = () => {
 
                   <div className="relative">
                     <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-blue-600 to-blue-900 rounded-full"></div>
-                    <div className="pl-6">
+                    <div className="pl-4 sm:pl-6">
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         Each recording helps train our AI to better understand human speech patterns, 
                         enabling more accurate real-time feedback for speech therapy and communication training.
@@ -168,7 +168,7 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl -z-0"></div>
+              <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-blue-600/5 rounded-full blur-3xl -z-0"></div>
             </CardHeader>
           </Card>
 
@@ -223,19 +223,19 @@ const Dashboard = () => {
           className="space-y-4"
         >
           <div className="flex justify-center mb-6">
-            <TabsList className="inline-flex h-10 items-center justify-center rounded-full bg-white p-1 shadow-[0_2px_10px] shadow-black/5">
+            <TabsList className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full bg-white p-1 shadow-[0_2px_10px] shadow-black/5">
               <TabsTrigger 
                 value="record"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 sm:px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
               >
-                <MicIcon className="h-4 w-4 mr-2" />
+                <MicIcon className="h-4 w-4 mr-1 sm:mr-2" />
                 Record New
               </TabsTrigger>
               <TabsTrigger 
                 value="recordings"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 sm:px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
               >
-                <BarChart2Icon className="h-4 w-4 mr-2" />
+                <BarChart2Icon className="h-4 w-4 mr-1 sm:mr-2" />
                 My Recordings
               </TabsTrigger>
             </TabsList>

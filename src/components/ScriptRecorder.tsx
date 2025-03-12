@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MicIcon, StopCircleIcon, Loader2Icon, PlayIcon, CheckCircleIcon, AlertCircleIcon, TimerIcon, InfoIcon, HelpCircle, BarChart2Icon, RefreshCw } from 'lucide-react';
+import { MicIcon, StopCircleIcon, Loader2Icon, PlayIcon, CheckCircleIcon, AlertCircleIcon, TimerIcon, InfoIcon, HelpCircle, BarChart2Icon, RefreshCw, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { uploadVoiceRecording, saveRecordingMetadata } from '../utils/supabaseClient';
 import { getUserProgress, updateUserProgress, supabase } from '../lib/supabase';
@@ -76,6 +76,7 @@ const ScriptRecorder = () => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
@@ -713,83 +714,223 @@ const ScriptRecorder = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-5xl">
-      <Card className="mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
-                    Research Lab
-                  </Badge>
-                  <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
-                    Voice Analysis
-                  </Badge>
+    <div className="container mx-auto p-2 sm:p-4 max-w-5xl">
+      <Card className="mb-4 sm:mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
+        <CardHeader className="p-3">
+          {/* Mobile Header - Collapsible */}
+          <div className="block lg:hidden">
+            <div 
+              className="flex items-start gap-3 cursor-pointer"
+              onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}
+            >
+              {/* Left side with icon and title */}
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <MicIcon className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-3xl font-bold text-foreground">
-                  Voice Recording Session
-                </CardTitle>
               </div>
-              <div className="max-w-2xl space-y-4">
-                <CardDescription className="text-lg leading-relaxed text-foreground/90">
-                  Contribute to our research on Real-Time Speech Rate and Emotion Analysis. Your recordings help train our deep learning models to provide instant feedback on speech patterns and emotional expression.
-                </CardDescription>
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2 text-sm text-foreground/80">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <BarChart2Icon className="h-4 w-4 text-primary" />
-                    </div>
-                    <span className="font-medium">Real-time Analysis</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-foreground/80">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <TimerIcon className="h-4 w-4 text-primary" />
-                    </div>
-                    <span className="font-medium">Instant Feedback</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-foreground/80">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <MicIcon className="h-4 w-4 text-primary" />
-                    </div>
-                    <span className="font-medium">Speech Pattern Recognition</span>
-                  </div>
+
+              {/* Middle content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <CardTitle className="text-lg font-semibold text-foreground leading-none">
+                    Voice Recording Session
+                  </CardTitle>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 ml-2">
+                    <ChevronDown className={cn("h-5 w-5 transition-transform", isInstructionsOpen ? "transform rotate-180" : "")} />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="bg-primary/5 text-primary text-sm px-2.5 py-1">Research Lab</Badge>
+                  <Badge variant="outline" className="bg-primary/5 text-primary text-sm px-2.5 py-1">Voice Analysis</Badge>
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="rounded-full w-10 h-10">
-                      <InfoIcon className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-sm">
-                    <p className="text-foreground/90">Complete all scripts in each category before moving to the next. Each recording has a {RECORDING_TIME_LIMIT}-second time limit.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="text-sm text-foreground/80 text-right font-medium">
-                <p>Session Time: {RECORDING_TIME_LIMIT}s</p>
-                <p>Categories: {categories.length}</p>
+
+            {/* Mobile Collapsible Content */}
+            <div className={cn("mt-4 space-y-3", !isInstructionsOpen && "hidden")}>
+              {/* Session Info */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-primary/5 rounded-lg p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TimerIcon className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium">Session: {RECORDING_TIME_LIMIT}s</span>
+                  </div>
+                </div>
+                <div className="bg-primary/5 rounded-lg p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart2Icon className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium">Categories: {categories.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <CardDescription className="text-xs leading-relaxed text-foreground/90">
+                Contribute to our research on Real-Time Speech Rate and Emotion Analysis. Your recordings help train our deep learning models.
+              </CardDescription>
+
+              {/* Features */}
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <BarChart2Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-medium text-xs block">Real-time Analysis</span>
+                    <span className="text-xs text-muted-foreground block">Instant processing</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <TimerIcon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-medium text-xs block">Instant Feedback</span>
+                    <span className="text-xs text-muted-foreground block">Quick results</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <MicIcon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-medium text-xs block">Speech Recognition</span>
+                    <span className="text-xs text-muted-foreground block">Advanced detection</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Help Button */}
+              <div className="pt-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-2">
+                        <InfoIcon className="h-4 w-4" />
+                        View Recording Instructions
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[250px]">
+                      <p className="text-xs">Complete all scripts in each category before moving to the next. Each recording has a {RECORDING_TIME_LIMIT}-second time limit.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Header - Always visible */}
+          <div className="hidden lg:block">
+            <div className="flex flex-col gap-6">
+              {/* Title and Session Info */}
+              <div className="flex items-start lg:items-center justify-between gap-4 flex-wrap">
+                <div className="space-y-2 min-w-0">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
+                      Research Lab
+                    </Badge>
+                    <Badge variant="outline" className="bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors">
+                      Voice Analysis
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-2xl xl:text-3xl font-bold text-foreground">
+                    Voice Recording Session
+                  </CardTitle>
+                </div>
+                
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="bg-primary/5 rounded-lg p-3 space-y-1.5">
+                    <p className="font-medium flex items-center gap-2 text-sm whitespace-nowrap">
+                      <TimerIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                      Session Time: {RECORDING_TIME_LIMIT}s
+                    </p>
+                    <p className="font-medium flex items-center gap-2 text-sm whitespace-nowrap">
+                      <BarChart2Icon className="h-4 w-4 text-primary flex-shrink-0" />
+                      Categories: {categories.length}
+                    </p>
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="rounded-full w-10 h-10 border-2 flex-shrink-0">
+                          <InfoIcon className="h-5 w-5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-sm">
+                        <p className="text-sm">Complete all scripts in each category before moving to the next. Each recording has a {RECORDING_TIME_LIMIT}-second time limit.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+
+              {/* Description and Features */}
+              <div className="space-y-6">
+                <CardDescription className="text-base xl:text-lg leading-relaxed text-foreground/90 max-w-3xl">
+                  Contribute to our research on Real-Time Speech Rate and Emotion Analysis. Your recordings help train our deep learning models to provide instant feedback on speech patterns and emotional expression.
+                </CardDescription>
+                
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <BarChart2Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate">Real-time Analysis</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        Instant processing of speech patterns and metrics
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <TimerIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate">Instant Feedback</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        Real-time evaluation and performance metrics
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <MicIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate">Speech Recognition</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        Advanced pattern detection and analysis
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      <Card className="mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl font-bold">
-            <HelpCircle className="h-6 w-6 text-primary" />
-            How to Use talk.twah
-          </CardTitle>
+      {/* Instructions Card - Collapsible on mobile */}
+      <Card className="mb-4 sm:mb-6 bg-gradient-to-br from-primary/5 via-primary/10 to-background border-2 border-primary/20">
+        <CardHeader className="cursor-pointer" onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+              <HelpCircle className="h-6 w-6 text-primary" />
+              How to Use talk.twah
+            </CardTitle>
+            <Button variant="ghost" size="icon" className="sm:hidden">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isInstructionsOpen ? "transform rotate-180" : "")} />
+            </Button>
+          </div>
           <CardDescription className="text-muted-foreground">
             Follow these steps to get started with voice recording
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={cn("sm:block", !isInstructionsOpen && "hidden")}>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="recording" className="border-none">
               <AccordionTrigger className="hover:no-underline py-4 px-4 rounded-lg hover:bg-primary/5 data-[state=open]:bg-primary/5 transition-all">
@@ -932,9 +1073,28 @@ const ScriptRecorder = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Categories Panel */}
-        <Card className="md:col-span-1 border border-border/50 shadow-sm">
+      {/* Mobile Category Selector */}
+      <div className="block md:hidden mb-4">
+        <select
+          value={currentCategory}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          className="w-full p-2 rounded-lg border border-border/50 bg-background"
+        >
+          {categories.map(category => {
+            const categoryScripts = getCategoryScripts(category.id);
+            const completedCount = categoryScripts.filter(s => completedScripts.has(s.id)).length;
+            return (
+              <option key={category.id} value={category.id}>
+                {category.icon} {category.label} ({completedCount}/{categoryScripts.length})
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {/* Categories Panel - Hidden on mobile */}
+        <Card className="hidden md:block md:col-span-1 border border-border/50 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg">
               <MicIcon className="h-5 w-5 text-primary" />
@@ -1062,7 +1222,7 @@ const ScriptRecorder = () => {
         {/* Scripts Panel */}
         <Card className="md:col-span-2 border border-border/50 shadow-sm h-full flex flex-col">
           <CardHeader className="pb-3 border-b flex-shrink-0">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div className="space-y-1">
                 <CardTitle className="flex items-center gap-2 text-lg font-medium">
                   <TimerIcon className="h-5 w-5 text-primary" />
@@ -1072,13 +1232,13 @@ const ScriptRecorder = () => {
                   Read and record each script in the selected category
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {hasPermission === false && (
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={requestMicrophonePermission}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                   >
                     <AlertCircleIcon className="h-4 w-4" />
                     Enable Microphone
@@ -1091,8 +1251,8 @@ const ScriptRecorder = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-4">
-            <div className="space-y-4">
+          <CardContent className="p-2 sm:p-4">
+            <div className="space-y-3 sm:space-y-4">
               {getCategoryScripts(currentCategory).map((script) => (
                 <Card 
                   key={script.id} 
@@ -1104,10 +1264,10 @@ const ScriptRecorder = () => {
                     currentScript?.id === script.id && "ring-2 ring-primary ring-offset-2"
                   )}
                 >
-                  <CardHeader className="p-4 pb-3">
+                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="text-base flex flex-wrap items-center gap-2">
                           {script.title}
                           {completedScripts.has(script.id) && (
                             <Badge variant="default" className="bg-primary/20 text-primary hover:bg-primary/30">
@@ -1122,33 +1282,33 @@ const ScriptRecorder = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0">
+                  <CardContent className="p-3 sm:p-4 pt-0">
                     {currentScript?.id === script.id ? (
                       <div className="space-y-4">
                         <div className="flex items-center justify-center py-4">
                           {countdown > 0 ? (
-                            <div className="text-6xl font-bold text-primary animate-bounce">
+                            <div className="text-5xl sm:text-6xl font-bold text-primary animate-bounce">
                               {countdown}
                             </div>
                           ) : isRecording ? (
-                            <div className="flex items-center gap-8">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
                               <div className="relative">
                                 <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping" />
                                 <Progress
                                   value={(duration / RECORDING_TIME_LIMIT) * 100}
-                                  className="w-24 h-24 rounded-full"
+                                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full"
                                 />
                                 <Button
                                   variant="destructive"
                                   size="icon"
-                                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-16 w-16 rounded-full animate-pulse shadow-lg"
+                                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-14 w-14 sm:h-16 sm:w-16 rounded-full animate-pulse shadow-lg"
                                   onClick={stopRecording}
                                 >
-                                  <StopCircleIcon size={32} />
+                                  <StopCircleIcon size={28} />
                                 </Button>
                               </div>
                               <div className="text-center">
-                                <p className="font-mono text-3xl text-primary">
+                                <p className="font-mono text-2xl sm:text-3xl text-primary">
                                   {(RECORDING_TIME_LIMIT - duration).toFixed(1)}s
                                 </p>
                                 <p className="text-sm text-muted-foreground">remaining</p>
@@ -1158,14 +1318,14 @@ const ScriptRecorder = () => {
                             <div className="space-y-4 w-full">
                               {audioUrl && (
                                 <>
-                                  <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
+                                  <div className="bg-muted/50 rounded-lg p-3 sm:p-4 border border-border/50">
                                     <audio ref={audioRef} controls className="w-full" />
                                   </div>
-                                  <div className="flex justify-center gap-4">
+                                  <div className="flex justify-center gap-3 sm:gap-4">
                                     <Button
                                       onClick={handleSubmit}
                                       disabled={isSubmitting}
-                                      className="w-32 bg-primary hover:bg-primary/90 shadow-sm"
+                                      className="w-28 sm:w-32 bg-primary hover:bg-primary/90 shadow-sm"
                                     >
                                       {isSubmitting ? (
                                         <>
@@ -1183,7 +1343,7 @@ const ScriptRecorder = () => {
                                       variant="outline"
                                       onClick={resetRecording}
                                       disabled={isSubmitting}
-                                      className="w-32 shadow-sm"
+                                      className="w-28 sm:w-32 shadow-sm"
                                     >
                                       Reset
                                     </Button>
