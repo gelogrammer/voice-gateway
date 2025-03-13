@@ -290,8 +290,19 @@ export const uploadVoiceRecording = async (file: File, userId: string, userEmail
       throw new Error('File size exceeds 10MB limit');
     }
     
-    if (!['audio/wav', 'audio/webm', 'audio/mp3', 'audio/mpeg'].includes(file.type)) {
-      throw new Error('Invalid file type. Only WAV, WebM, and MP3 files are allowed');
+    // Support more audio formats including iOS-specific ones
+    const allowedTypes = [
+      'audio/wav',
+      'audio/webm',
+      'audio/mp3',
+      'audio/mpeg',
+      'audio/mp4',
+      'audio/x-m4a',
+      'audio/aac'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Supported formats: WAV, WebM, MP3, MP4, M4A, AAC');
     }
 
     // Create folder name from email (remove special characters)
@@ -300,15 +311,22 @@ export const uploadVoiceRecording = async (file: File, userId: string, userEmail
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
 
-    // Use the original filename without timestamp
-    const filePath = `${folderName}/${file.name}`;
+    // Ensure file extension matches the actual format
+    let fileName = file.name;
+    if (!fileName.includes('.')) {
+      // Add appropriate extension based on mime type
+      const ext = file.type.split('/')[1].replace('x-', '');
+      fileName = `${fileName}.${ext}`;
+    }
 
-    // Upload to storage
+    const filePath = `${folderName}/${fileName}`;
+
+    // Upload to storage with appropriate content type
     const { data, error: uploadError } = await supabase.storage
       .from('recordings')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true, // Changed to true to overwrite existing files
+        upsert: true,
         contentType: file.type
       });
 
@@ -323,7 +341,7 @@ export const uploadVoiceRecording = async (file: File, userId: string, userEmail
 
     return { 
       path: filePath,
-      fileName: file.name,
+      fileName: fileName,
       fileSize: file.size,
       mimeType: file.type,
       ...data 

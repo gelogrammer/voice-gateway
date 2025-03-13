@@ -513,57 +513,40 @@ const ScriptRecorder = () => {
   const startRecording = async () => {
     try {
       audioChunks.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      
+      // iOS-compatible audio constraints
+      const constraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false, // Disable auto gain control to prevent volume fluctuation
-          sampleRate: 44100,
-          channelCount: 1
-        } 
-      });
+          autoGainControl: true,
+          sampleRate: { ideal: 44100, min: 22050 },
+          channelCount: { ideal: 1 },
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      // Create an AudioContext for processing
-      const audioContext = new AudioContext();
+      // For iOS compatibility, we'll use a simpler audio processing chain
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       
-      // Create a pre-amplifier gain node to boost input signal
-      const preGain = audioContext.createGain();
-      preGain.gain.value = 1.5; // Boost input volume by 50%
+      // Simple gain node for volume control
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 1.2; // Slight boost
       
-      // Create a compressor node to maintain consistent volume
-      const compressor = audioContext.createDynamicsCompressor();
-      compressor.threshold.value = -30; // Start compressing at -30dB (more sensitive)
-      compressor.knee.value = 15; // Smoother compression curve
-      compressor.ratio.value = 8; // Less aggressive compression
-      compressor.attack.value = 0.003; // Fast attack
-      compressor.release.value = 0.25; // Moderate release
-      
-      // Create a limiter to prevent clipping
-      const limiter = audioContext.createDynamicsCompressor();
-      limiter.threshold.value = -3; // Limit peaks at -3dB
-      limiter.knee.value = 0; // Hard limiting
-      limiter.ratio.value = 20; // Very aggressive ratio for limiting
-      limiter.attack.value = 0.001; // Very fast attack
-      limiter.release.value = 0.1; // Quick release
-      
-      // Create a final gain node for output volume control
-      const outputGain = audioContext.createGain();
-      outputGain.gain.value = 1.2; // Boost output slightly
-      
-      // Connect the audio processing chain
-      source.connect(preGain);
-      preGain.connect(compressor);
-      compressor.connect(limiter);
-      limiter.connect(outputGain);
+      source.connect(gainNode);
       
       // Create a MediaStream from the processed audio
       const destination = audioContext.createMediaStreamDestination();
-      outputGain.connect(destination);
+      gainNode.connect(destination);
+      
+      // Try to use audio/mp4 for iOS, fallback to webm
+      const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm;codecs=opus';
       
       mediaRecorder.current = new MediaRecorder(destination.stream, {
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 128000 // 128kbps for good quality
+        mimeType: mimeType,
+        audioBitsPerSecond: 128000
       });
       
       mediaRecorder.current.ondataavailable = (event) => {
@@ -574,7 +557,7 @@ const ScriptRecorder = () => {
       
       mediaRecorder.current.onstop = async () => {
         try {
-          const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+          const audioBlob = new Blob(audioChunks.current, { type: mimeType });
           // Validate audio size and duration
           if (audioBlob.size < 1024) { // Less than 1KB
             throw new Error('Recording too short or empty');
@@ -778,16 +761,89 @@ const ScriptRecorder = () => {
   
   // Helper function to convert blob to wav format
   const convertToWav = async (blob: Blob): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        // For now, return the original blob
-        // In a production environment, you would want to implement
-        // proper audio conversion using Web Audio API or a library
-        resolve(blob);
+        // Create audio context
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        
+        // Create audio buffer from blob
+        const arrayBuffer = await blob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Create offline context for rendering
+        const offlineContext = new OfflineAudioContext(
+          1, // mono
+          audioBuffer.length,
+          44100 // standard sample rate
+        );
+        
+        // Create buffer source
+        const source = offlineContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(offlineContext.destination);
+        
+        // Start rendering
+        source.start(0);
+        const renderedBuffer = await offlineContext.startRendering();
+        
+        // Convert to WAV
+        const wavData = audioBufferToWav(renderedBuffer);
+        const wavBlob = new Blob([wavData], { type: 'audio/wav' });
+        
+        resolve(wavBlob);
       } catch (error) {
+        console.error('Error converting to WAV:', error);
         reject(error);
       }
     });
+  };
+
+  // Helper function to convert AudioBuffer to WAV format
+  const audioBufferToWav = (buffer: AudioBuffer): ArrayBuffer => {
+    const numChannels = 1; // Mono
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    
+    const data = buffer.getChannelData(0);
+    const dataLength = data.length * bytesPerSample;
+    const bufferLength = 44 + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (view: DataView, offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(view, 0, 'RIFF'); // ChunkID
+    view.setUint32(4, 36 + dataLength, true); // ChunkSize
+    writeString(view, 8, 'WAVE'); // Format
+    writeString(view, 12, 'fmt '); // Subchunk1ID
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, format, true); // AudioFormat
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+    view.setUint16(32, blockAlign, true); // BlockAlign
+    view.setUint16(34, bitDepth, true); // BitsPerSample
+    writeString(view, 36, 'data'); // Subchunk2ID
+    view.setUint32(40, dataLength, true); // Subchunk2Size
+    
+    // Audio data
+    const offset = 44;
+    for (let i = 0; i < data.length; i++) {
+      const sample = Math.max(-1, Math.min(1, data[i]));
+      view.setInt16(offset + (i * bytesPerSample), sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    }
+    
+    return arrayBuffer;
   };
   
   const getCategoryScripts = (category: string) => {
