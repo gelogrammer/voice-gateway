@@ -167,9 +167,15 @@ export const signIn = async (email: string, password: string) => {
       password
     });
 
-    if (error) throw error;
-    return { data, error };
-  } catch (error) {
+    if (error) {
+      // Check if the error is due to email not being confirmed
+      if (error.message === 'Email not confirmed') {
+        return { data: null, error: { message: 'Email not confirmed' } };
+      }
+      throw error;
+    }
+    return { data, error: null };
+  } catch (error: any) {
     console.error('Sign in error:', error);
     return { data: null, error };
   }

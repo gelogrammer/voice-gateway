@@ -68,7 +68,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await signIn(email, password);
-      if (error) throw error;
+      
+      if (error) {
+        // Handle email not confirmed error specifically
+        if (error.message === 'Email not confirmed') {
+          toast.error('Please check your email and confirm your account before logging in.');
+          return;
+        }
+        throw error;
+      }
       
       if (!data?.user) {
         throw new Error('No user data returned');
@@ -110,9 +118,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Should navigate to dashboard...'); // Debug log
         navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error.message || 'Failed to login');
+      // Handle specific error messages
+      if (error.message === 'Email not confirmed') {
+        toast.error('Please check your email and confirm your account before logging in.');
+      } else {
+        toast.error(error.message || 'Failed to login');
+      }
       throw error;
     }
   };
@@ -133,35 +146,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Wait a short moment to allow the trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Check if profile exists first
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', signUpData.user.id)
-        .single();
-
-      if (!existingProfile) {
-        // Only create profile if it doesn't exist
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: signUpData.user.id,
-            email: email,
-            full_name: fullName,
-            role: 'user',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Don't return here, continue with the flow
-        }
-      }
-
       // Add debug logging
       console.log('Registration successful with data:', {
         user: signUpData.user,
@@ -172,12 +156,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      setUser(signUpData.user);
-      setIsAdmin(false);
-      
       toast.success('Registration successful! Please check your email to confirm your account.');
+      
+      // Navigate to login page with success state
       navigate('/login', { 
-        state: { registrationSuccess: true }
+        state: { registrationSuccess: true },
+        replace: true  // Use replace to prevent going back to register page
       });
       
     } catch (error: any) {
