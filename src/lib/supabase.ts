@@ -85,10 +85,21 @@ export const getAllUsers = async () => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select(`
+        id,
+        email,
+        full_name,
+        role,
+        created_at,
+        updated_at
+      `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+
     return data;
   } catch (error) {
     console.error('Error in getAllUsers:', error);
@@ -97,17 +108,51 @@ export const getAllUsers = async () => {
 };
 
 // Auth helper functions
-export const signUp = async (email: string, password: string) => {
+export const signUp = async (email: string, password: string, fullName?: string) => {
   try {
+    console.log('Signing up with data:', { email, fullName }); // Debug log
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`
+        emailRedirectTo: `${window.location.origin}/login`,
+        data: {
+          full_name: fullName || ''
+        }
       }
     });
 
     if (error) throw error;
+
+    // If signup successful and we have user data, create/update profile
+    if (data?.user) {
+      // First check if profile exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (!existingProfile) {
+        // Only create profile if it doesn't exist
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: email,
+            full_name: fullName || '',
+            role: 'user',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+        }
+      }
+    }
+
     return { data, error: null };
   } catch (error) {
     console.error('Signup error:', error);

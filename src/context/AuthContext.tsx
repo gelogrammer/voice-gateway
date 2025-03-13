@@ -119,7 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, fullName: string) => {
     try {
-      const { data: signUpData, error: signUpError } = await signUp(email, password);
+      // First, sign up the user with Supabase auth
+      const { data: signUpData, error: signUpError } = await signUp(email, password, fullName);
       
       if (signUpError) {
         console.error('Signup error:', signUpError);
@@ -132,30 +133,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Create profile entry
-      const { error: profileError } = await supabase
+      // Wait a short moment to allow the trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Check if profile exists first
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .insert([
-          {
+        .select('*')
+        .eq('id', signUpData.user.id)
+        .single();
+
+      if (!existingProfile) {
+        // Only create profile if it doesn't exist
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
             id: signUpData.user.id,
+            email: email,
             full_name: fullName,
             role: 'user',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }
-        ]);
-      
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        toast.error('Failed to create user profile');
-        return;
+          });
+        
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Don't return here, continue with the flow
+        }
       }
+
+      // Add debug logging
+      console.log('Registration successful with data:', {
+        user: signUpData.user,
+        profile: {
+          id: signUpData.user.id,
+          email,
+          fullName
+        }
+      });
 
       setUser(signUpData.user);
       setIsAdmin(false);
       
-      toast.success('Registration successful! Welcome!');
-      navigate('/dashboard');
+      toast.success('Registration successful! Please check your email to confirm your account.');
+      navigate('/login', { 
+        state: { registrationSuccess: true }
+      });
       
     } catch (error: any) {
       console.error('Registration process error:', error);

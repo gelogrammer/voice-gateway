@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { RefreshCw, MicIcon, BarChart2Icon, HelpCircle, InfoIcon } from 'lucide-react';
+import { RefreshCw, MicIcon, BarChart2Icon, HelpCircle, InfoIcon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import ScriptRecorder from '../components/ScriptRecorder';
 import UserCard from '../components/UserCard';
@@ -16,6 +16,7 @@ import { scripts } from '../data/recordingScripts';
 import { Recording } from '../types/recording';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RecordingCard from '../components/RecordingCard';
+import ProfileSettings from '@/components/ProfileSettings';
 import {
   Tooltip,
   TooltipContent,
@@ -251,66 +252,67 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Main Tabs Section */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <div className="flex justify-center mb-6">
-            <TabsList className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full bg-white p-1 shadow-[0_2px_10px] shadow-black/5">
-              <TabsTrigger 
-                value="record"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 sm:px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
-              >
-                <MicIcon className="h-4 w-4 mr-1 sm:mr-2" />
-                Record New
-              </TabsTrigger>
-              <TabsTrigger 
-                value="recordings"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 sm:px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[#0ea5e9] data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-muted/50"
-              >
-                <BarChart2Icon className="h-4 w-4 mr-1 sm:mr-2" />
-                My Recordings
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        {/* Main Content */}
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="record" className="flex items-center gap-2">
+              <MicIcon className="h-4 w-4" />
+              Record
+            </TabsTrigger>
+            <TabsTrigger value="recordings" className="flex items-center gap-2">
+              <BarChart2Icon className="h-4 w-4" />
+              Recordings
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4" />
+              Profile
+            </TabsTrigger>
+          </TabsList>
 
-          <TabsContent value="record" className="mt-6 focus-visible:outline-none">
-            <Card className="border-2 border-primary/20">
-              <CardContent className="p-0">
-                <ScriptRecorder />
-              </CardContent>
-            </Card>
+          <TabsContent value="record" className="mt-4 animate-fade-in focus-visible:outline-none">
+            <ScriptRecorder />
           </TabsContent>
 
-          <TabsContent value="recordings" className="mt-6 focus-visible:outline-none">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">Your Recordings</CardTitle>
-                <CardDescription>Review and manage your recorded voice samples</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                      <LoadingSpinner />
-                    </div>
-                  ) : recordings.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">
-                      <MicIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No recordings found. Start by recording your first voice sample!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {recordings.map((recording) => (
-                        <RecordingCard 
-                          key={recording.id} 
-                          recording={recording} 
-                          onDelete={handleDeleteRecording}
-                        />
-                      ))}
-                    </div>
-                  )}
+          <TabsContent value="recordings" className="mt-4 animate-fade-in focus-visible:outline-none">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-medium">Your Recordings</h2>
+                <Button onClick={fetchRecordings} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+
+              {loading ? (
+                <LoadingSpinner />
+              ) : recordings.length > 0 ? (
+                <ScrollArea className="h-[600px] rounded-md border p-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    {recordings.map((recording) => (
+                      <RecordingCard
+                        key={recording.id}
+                        recording={recording}
+                        onDelete={handleDeleteRecording}
+                      />
+                    ))}
+                  </div>
                 </ScrollArea>
-              </CardContent>
-            </Card>
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <MicIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium text-center mb-2">No recordings yet</p>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Start recording to see your progress
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="profile" className="mt-4 animate-fade-in focus-visible:outline-none">
+            <ProfileSettings />
           </TabsContent>
         </Tabs>
       </div>

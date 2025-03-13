@@ -490,7 +490,7 @@ const AdminDashboard = () => {
                           <div className="p-2 rounded-full bg-voice-blue/10 text-voice-blue">
                             <UserIcon size={16} />
                           </div>
-                          <CardTitle className="text-lg">{user.full_name || 'Unnamed User'}</CardTitle>
+                          <CardTitle className="text-lg">{user.full_name || user.email}</CardTitle>
                         </div>
                         <div className="text-xs px-2 py-1 rounded bg-secondary">
                           {user.role}
