@@ -32,8 +32,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
         await login(email, password);
       } else {
         await register(email, password, fullName);
-        toast.success('Registration successful! Please log in.');
-        navigate('/login');
+        toast.success('Registration successful!');
+        navigate('/login', { 
+          state: { registrationSuccess: true }
+        });
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred');

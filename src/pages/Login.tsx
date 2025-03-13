@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Footer from '../components/Footer';
 import AuthForm from '../components/AuthForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mail } from 'lucide-react';
 
 const Login = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   useEffect(() => {
     if (user) {
@@ -35,6 +38,14 @@ const Login = () => {
             </CardHeader>
             
             <CardContent>
+              {location.state?.registrationSuccess && (
+                <Alert className="mb-6 bg-blue-50">
+                  <Mail className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-600">
+                    Please check your email and confirm your account before logging in.
+                  </AlertDescription>
+                </Alert>
+              )}
               <AuthForm type="login" />
             </CardContent>
           </Card>
