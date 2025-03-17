@@ -41,7 +41,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useProgress } from '@/context/ProgressContext';
-import ProgressOverview from './ProgressOverview';
 
 const RECORDING_TIME_LIMIT = 7; // 7 seconds
 const COUNTDOWN_TIME = 3; // 3 seconds countdown before recording
@@ -1904,37 +1903,6 @@ const ScriptRecorder = () => {
         count={deleteDialogState.recordingCount}
         isLoading={isResetting}
       />
-
-      {/* Progress Overview Card */}
-      <Card key={forceUpdateKey} className="mb-4 sm:mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart2Icon className="h-5 w-5 text-primary" />
-            Progress Overview
-          </CardTitle>
-          <CardDescription>
-            Track your recording progress and completion status
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <MicIcon className="h-4 w-4 text-primary" />
-                <span className="font-medium">Recordings</span>
-              </div>
-              <div className="text-3xl font-bold text-primary">{totalRecordings}</div>
-            </div>
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart2Icon className="h-4 w-4 text-primary" />
-                <span className="font-medium">Complete</span>
-              </div>
-              <div className="text-3xl font-bold text-primary">{completionPercentage}%</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
