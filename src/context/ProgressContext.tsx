@@ -45,7 +45,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Update completion percentage
       if (!progressResult.error && progressResult.data) {
         const completedCount = progressResult.data.completed_scripts.length;
-        const totalScripts = 40; // Update this with your actual total scripts count
+        const totalScripts = 24; // Total number of scripts (3 scripts × 8 categories)
         const percentage = Math.round((completedCount / totalScripts) * 100);
         setCompletionPercentage(percentage);
       }
